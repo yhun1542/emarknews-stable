@@ -91,10 +91,11 @@ class AIService {
         type: 'translate'
       });
     }).then(translated => {
-      // Validate translation result
-      if (!translated || translated === text || !this.isKorean(translated)) {
-        throw new Error('Translation result invalid or not Korean.');
+      // Validate translation result - 완화된 검증
+      if (!translated || translated.trim().length === 0) {
+        throw new Error('Translation result is empty.');
       }
+      // 번역 결과가 원문과 같더라도 허용 (이미 한국어일 수 있음)
       this.cache.set(cacheKey, translated);
       if (this.cache.size > 1000) this.cache.delete(this.cache.keys().next().value);
       return translated;
@@ -119,7 +120,7 @@ IT, 기술(Tech), 비즈니스(Biz), 버즈(Buzz) 분야의 뉴스를 다룹니�
           { role: 'system', content: systemMessage },
           { role: 'user', content: `Translate the following news text into Korean:\n\n${text}` }
         ],
-        max_tokens: 800, // Upward from provided code
+        max_tokens: 1200, // 증가된 토큰 제한
         temperature: 0.3
       }, {
         headers: { 'Authorization': `Bearer ${this.openaiApiKey}` },
@@ -193,7 +194,7 @@ IT, 기술(Tech), 비즈니스(Biz), 버즈(Buzz) 분야의 뉴스를 다룹니�
           },
           { role: 'user', content: `다음 뉴스를 ${maxPoints}개의 핵심 포인트로 요약해주세요:\n\n${text}` }
         ],
-        max_tokens: 600, // Upward
+        max_tokens: 800, // 증가된 토큰 제한
         temperature: 0.3
       }, {
         headers: { 'Authorization': `Bearer ${this.openaiApiKey}` },
