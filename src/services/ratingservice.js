@@ -131,7 +131,7 @@ class RatingService {
   async generateTags(article) {
     try {
       if (!article || !article.title) {
-        return ['일반'];
+        return [];
       }
 
       const tags = [];
@@ -139,104 +139,40 @@ class RatingService {
       const descriptionLower = (article.description || '').toLowerCase();
       const combinedText = titleLower + ' ' + descriptionLower;
 
-      // Urgency tags
+      // 1. 긴급 태그
       if (this.containsKeywords(combinedText, this.urgentKeywords)) {
         tags.push('긴급');
       }
 
-      // Importance tags
+      // 2. 중요 태그
       if (this.containsKeywords(combinedText, this.importantKeywords)) {
         tags.push('중요');
       }
 
-      // Buzz tags
+      // 3. Buzz 태그
       if (this.containsKeywords(combinedText, this.buzzKeywords)) {
-        tags.push('바이럴');
+        tags.push('Buzz');
       }
 
-      // Category tags
-      if (this.containsKeywords(combinedText, this.techKeywords)) {
-        tags.push('테크');
-      }
-
-      if (this.containsKeywords(combinedText, this.businessKeywords)) {
-        tags.push('경제');
-      }
-
-      // Sports tag with lower priority (added last if needed)
-      if (this.containsKeywords(combinedText, this.sportsKeywords)) {
-        tags.push('스포츠');
-      }
-
-      // Recency tags
-      const publishedDate = new Date(article.publishedAt);
-      const now = new Date();
-      const hoursAgo = (now - publishedDate) / (1000 * 60 * 60);
-      
-      if (hoursAgo < 2) {
-        tags.push('Hot');
-      } else if (hoursAgo < 48) {
-        tags.push('Recent');
-      }
-
-      // Geographic tags (unchanged)
-      if (this.containsKeywords(combinedText, ['korea', 'korean', '한국', '서울', 'seoul'])) {
-        tags.push('한국');
-      }
-
-      if (this.containsKeywords(combinedText, ['japan', 'japanese', '일본', '도쿄', 'tokyo'])) {
-        tags.push('일본');
-      }
-
-      if (this.containsKeywords(combinedText, ['china', 'chinese', '중국', '베이징', 'beijing'])) {
-        tags.push('중국');
-      }
-
-      if (this.containsKeywords(combinedText, ['usa', 'america', 'american', '미국', '워싱턴', 'washington'])) {
-        tags.push('미국');
-      }
-
-      if (this.containsKeywords(combinedText, ['europe', 'european', '유럽', 'eu'])) {
-        tags.push('유럽');
-      }
-
-      // Special event tags (unchanged)
-      if (this.containsKeywords(combinedText, ['election', 'vote', '선거', '투표'])) {
-        tags.push('선거');
-      }
-
-      if (this.containsKeywords(combinedText, ['climate', 'environment', '기후', '환경'])) {
-        tags.push('환경');
-      }
-
-      if (this.containsKeywords(combinedText, ['covid', 'pandemic', 'virus', '코로나', '바이러스'])) {
-        tags.push('보건');
-      }
-
-      // Rating-based tags
+      // 4. Hot 태그 (4.9점 이상)
       const rating = await this.calculateRating(article);
-      if (rating >= 4.5) {
-        tags.push('주목');
+      if (rating >= 4.9) {
+        tags.push('Hot');
       }
 
-      // Default tag if no specific tags found
-      if (tags.length === 0) {
-        tags.push('일반');
-      }
-
-      // Remove duplicates and limit to 4 tags, prioritize urgent/important/buzz
+      // 중복 제거 및 4개 제한 (우선순위: 긴급 > 중요 > Hot > Buzz)
       const prioritizedTags = [];
-      ['긴급', '중요', '바이럴'].forEach(priorityTag => {
+      ['긴급', '중요', 'Hot', 'Buzz'].forEach(priorityTag => {
         if (tags.includes(priorityTag)) {
           prioritizedTags.push(priorityTag);
-          tags.splice(tags.indexOf(priorityTag), 1);
         }
       });
-      return [...new Set([...prioritizedTags, ...tags])].slice(0, 4);
+
+      return [...new Set(prioritizedTags)].slice(0, 4);
 
     } catch (error) {
       logger.warn('Tag generation failed:', error.message);
-      return ['일반'];
+      return [];
     }
   }
 
