@@ -13,10 +13,13 @@ class AIService {
   async translateToKorean(text, retries = 2) {
     if (!text || text.trim().length === 0) return '';
     
-    // Simple Korean detection
-    if (this.isKorean(text)) return text;
+    // 언어 감지 개선
+    const language = this.detectLanguage(text);
     
-    const cacheKey = `translate:${text.substring(0, 50)}`;
+    // 이미 한국어인 경우 그대로 반환
+    if (language === 'ko') return text;
+    
+    const cacheKey = `translate:${language}:${text.substring(0, 50)}`;
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
@@ -31,10 +34,10 @@ class AIService {
       let translated;
       
       if (this.openaiApiKey) {
-        translated = await this.translateWithOpenAI(text);
+        translated = await this.translateWithOpenAI(text, language);
       } else {
-        // Fallback: Simple text processing for common English patterns
-        translated = await this.basicTranslation(text);
+        // Fallback: Simple text processing for common patterns
+        translated = await this.basicTranslation(text, language);
       }
 
       // Cache the result
@@ -60,14 +63,24 @@ class AIService {
     }
   }
 
-  async translateWithOpenAI(text) {
+  async translateWithOpenAI(text, language = 'en') {
     try {
+      // 언어별 맞춤 시스템 메시지
+      let systemMessage = '';
+      if (language === 'ja') {
+        systemMessage = '당신은 일본어-한국어 번역 전문가입니다. 일본어 뉴스 제목과 요약문을 자연스럽고 정확한 한국어로 번역하세요. 일본 고유명사와 지명은 한국어 표기법에 맞게 번역해주세요.';
+      } else if (language === 'en') {
+        systemMessage = '당신은 영어-한국어 번역 전문가입니다. 영어 뉴스 제목과 요약문을 자연스럽고 정확한 한국어로 번역하세요. 뉴스의 톤과 중요성을 유지하면서 한국 독자가 이해하기 쉽게 번역해주세요.';
+      } else {
+        systemMessage = '당신은 다국어 번역 전문가입니다. 주어진 텍스트를 자연스럽고 정확한 한국어로 번역하세요. 원문의 의미와 뉘앙스를 최대한 보존해주세요.';
+      }
+
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
-            content: '당신은 뉴스 번역 전문가입니다. 영어 뉴스 제목과 요약문을 자연스럽고 정확한 한국어로 번역하세요. 뉴스의 톤과 중요성을 유지하면서 한국 독자가 이해하기 쉽게 번역해주세요.'
+            content: systemMessage
           },
           {
             role: 'user',
@@ -96,36 +109,88 @@ class AIService {
     }
   }
 
-  async basicTranslation(text) {
-    // Very basic translation for common news terms
+  async basicTranslation(text, language = 'en') {
+    // 언어별 기본 번역
     const translations = {
-      'Breaking News': '속보',
-      'BREAKING': '속보',
-      'UPDATE': '업데이트',
-      'URGENT': '긴급',
-      'President': '대통령',
-      'Government': '정부',
-      'Election': '선거',
-      'Economy': '경제',
-      'Technology': '기술',
-      'Health': '건강',
-      'Climate': '기후',
-      'Ukraine': '우크라이나',
-      'Russia': '러시아',
-      'China': '중국',
-      'Japan': '일본',
-      'North Korea': '북한',
-      'South Korea': '한국',
-      'United States': '미국',
-      'Europe': '유럽'
+      // 영어 번역
+      en: {
+        'Breaking News': '속보',
+        'BREAKING': '속보',
+        'UPDATE': '업데이트',
+        'URGENT': '긴급',
+        'President': '대통령',
+        'Government': '정부',
+        'Election': '선거',
+        'Economy': '경제',
+        'Technology': '기술',
+        'Health': '건강',
+        'Climate': '기후',
+        'Ukraine': '우크라이나',
+        'Russia': '러시아',
+        'China': '중국',
+        'Japan': '일본',
+        'North Korea': '북한',
+        'South Korea': '한국',
+        'United States': '미국',
+        'Europe': '유럽'
+      },
+      // 일본어 번역
+      ja: {
+        '速報': '속보',
+        '緊急': '긴급',
+        '政府': '정부',
+        '大統領': '대통령',
+        '首相': '총리',
+        '経済': '경제',
+        '技術': '기술',
+        '健康': '건강',
+        '気候': '기후',
+        'ウクライナ': '우크라이나',
+        'ロシア': '러시아',
+        '中国': '중국',
+        '韓国': '한국',
+        '北朝鮮': '북한',
+        'アメリカ': '미국',
+        'ヨーロッパ': '유럽',
+        '沖縄': '오키나와',
+        '東京': '도쿄',
+        '大阪': '오사카',
+        '火災': '화재',
+        '事故': '사고',
+        '警察': '경찰',
+        '病院': '병원',
+        '学校': '학교',
+        '会社': '회사'
+      }
     };
 
     let translated = text;
-    for (const [en, ko] of Object.entries(translations)) {
-      translated = translated.replace(new RegExp(en, 'gi'), ko);
+    const langTranslations = translations[language] || translations.en;
+    
+    for (const [original, korean] of Object.entries(langTranslations)) {
+      translated = translated.replace(new RegExp(original, 'gi'), korean);
     }
 
     return translated;
+  }
+
+  detectLanguage(text) {
+    if (!text) return 'unknown';
+    
+    // 한국어 감지
+    const koreanRegex = /[\u3131-\u314e\u314f-\u3163\uac00-\ud7a3]/;
+    if (koreanRegex.test(text)) return 'ko';
+    
+    // 일본어 감지 (히라가나, 가타카나, 한자)
+    const japaneseRegex = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/;
+    if (japaneseRegex.test(text)) return 'ja';
+    
+    // 중국어 감지 (간체/번체 한자)
+    const chineseRegex = /[\u4e00-\u9fff]/;
+    if (chineseRegex.test(text) && !japaneseRegex.test(text)) return 'zh';
+    
+    // 영어 감지 (기본값)
+    return 'en';
   }
 
   async generateSummaryPoints(text, maxPoints = 3) {
@@ -277,12 +342,6 @@ class AIService {
     }
     
     return cleaned;
-  }
-
-  isKorean(text) {
-    // Check if text contains Korean characters
-    const koreanRegex = /[\u3131-\u314e\u314f-\u3163\uac00-\ud7a3]/;
-    return koreanRegex.test(text);
   }
 
   canMakeRequest() {

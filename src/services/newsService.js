@@ -5,7 +5,12 @@ const aiService = require('./aiservice');
 
 class NewsService {
     constructor() {
-        this.parser = new Parser({ timeout: 5000 });
+        this.parser = new Parser({ 
+            timeout: 10000,  // 10초로 증가
+            headers: {
+                'User-Agent': 'EmarkNews/1.0 (News Aggregator)'
+            }
+        });
         this.sources = {
             world: [
                 { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC' },
@@ -21,7 +26,7 @@ class NewsService {
                 { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch' },
                 { url: 'https://www.androidauthority.com/feed/', name: 'Android Authority' },
                 { url: 'https://9to5mac.com/feed/', name: '9to5Mac' },
-                { url: 'https://feeds.ign.com/ign/all', name: 'IGN' }
+                { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica' }
             ],
             japan: [
                 { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK' }
@@ -122,7 +127,16 @@ class NewsService {
 
         for (const source of sources) {
             try {
+                logger.info(`Fetching news from ${source.name}: ${source.url}`);
                 const feed = await this.parser.parseURL(source.url);
+                
+                if (!feed || !feed.items || feed.items.length === 0) {
+                    logger.warn(`No items found in feed from ${source.name}`);
+                    continue;
+                }
+                
+                logger.info(`Found ${feed.items.length} items from ${source.name}`);
+                
                 const items = await Promise.all(feed.items.slice(0, 15).map(async (item) => {
                     const title = item.title;
                     const description = item.contentSnippet || item.content || '';
@@ -136,23 +150,50 @@ class NewsService {
                     let originalTextKo = description;
                     
                     try {
-                        // AI 번역 및 요약 (병렬 처리)
-                        const [translatedTitle, translatedDesc, summaryPts, detailedSummary] = await Promise.all([
-                            aiService.translateToKorean(title),
-                            aiService.translateToKorean(description),
-                            aiService.generateSummaryPoints(description),
-                            aiService.generateDetailedSummary({ title, content: description })
-                        ]);
+                        // AI 번역 및 요약 (개별 처리로 안정성 향상)
+                        // 제목 번역
+                        try {
+                            titleKo = await aiService.translateToKorean(title) || title;
+                        } catch (error) {
+                            logger.warn(`Title translation failed: ${error.message}`);
+                            titleKo = title;
+                        }
                         
-                        titleKo = translatedTitle || title;
-                        descriptionKo = translatedDesc || description;
-                        summaryPoints = summaryPts || ['요약 정보를 생성할 수 없습니다.'];
-                        aiDetailedSummary = detailedSummary || '상세 요약을 생성할 수 없습니다.';
-                        originalTextKo = translatedDesc || description;
+                        // 설명 번역
+                        try {
+                            descriptionKo = await aiService.translateToKorean(description) || description;
+                            originalTextKo = descriptionKo;
+                        } catch (error) {
+                            logger.warn(`Description translation failed: ${error.message}`);
+                            descriptionKo = description;
+                            originalTextKo = description;
+                        }
+                        
+                        // 요약 포인트 생성
+                        try {
+                            summaryPoints = await aiService.generateSummaryPoints(descriptionKo || description) || ['요약 정보를 생성할 수 없습니다.'];
+                        } catch (error) {
+                            logger.warn(`Summary points generation failed: ${error.message}`);
+                            summaryPoints = ['AI 요약 서비스를 일시적으로 사용할 수 없습니다.'];
+                        }
+                        
+                        // 상세 요약 생성
+                        try {
+                            aiDetailedSummary = await aiService.generateDetailedSummary({ 
+                                title: titleKo || title, 
+                                content: descriptionKo || description 
+                            }) || '상세 요약을 생성할 수 없습니다.';
+                        } catch (error) {
+                            logger.warn(`Detailed summary generation failed: ${error.message}`);
+                            aiDetailedSummary = '상세 요약을 생성할 수 없습니다.';
+                        }
                         
                     } catch (aiError) {
                         logger.warn(`AI processing failed for article: ${title.substring(0, 50)}...`, aiError.message);
                         // AI 실패 시 fallback
+                        titleKo = title;
+                        descriptionKo = description;
+                        originalTextKo = description;
                         summaryPoints = ['AI 요약 서비스를 일시적으로 사용할 수 없습니다.'];
                         aiDetailedSummary = '상세 요약을 생성할 수 없습니다.';
                     }
