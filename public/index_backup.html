@@ -1,0 +1,95 @@
+cat > public/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmarkNews v7.0</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header { text-align: center; margin-bottom: 30px; }
+        .api-endpoint { 
+            background: white; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .method { 
+            display: inline-block; 
+            padding: 3px 8px; 
+            border-radius: 3px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            margin-right: 10px;
+        }
+        .get { background: #4CAF50; color: white; }
+        .post { background: #2196F3; color: white; }
+        .endpoint-url { font-family: monospace; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔥 EmarkNews v7.0 API</h1>
+        <p>AI-powered Real-time News Aggregator</p>
+    </div>
+    
+    <div class="api-endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-url">/api/news/:section</span>
+        <p>Get news by section: world, kr, japan, tech, business, buzz</p>
+    </div>
+    
+    <div class="api-endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-url">/api/currency</span>
+        <p>Get current exchange rates (USD, JPY, EUR, CNY)</p>
+    </div>
+    
+    <div class="api-endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-url">/api/youtube/:section</span>
+        <p>Get YouTube videos by section</p>
+    </div>
+    
+    <div class="api-endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-url">/api/translate</span>
+        <p>Translate text to Korean using AI</p>
+    </div>
+    
+    <div class="api-endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-url">/api/trending</span>
+        <p>Get trending topics and tags</p>
+    </div>
+    
+    <div class="api-endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-url">/health</span>
+        <p>System health check</p>
+    </div>
+    
+    <script>
+        // Simple API tester
+        async function testAPI() {
+            try {
+                const response = await fetch('/api/news/world');
+                const data = await response.json();
+                console.log('API Test:', data);
+            } catch (error) {
+                console.error('API Test failed:', error);
+            }
+        }
+        
+        // Test API on page load
+        testAPI();
+    </script>
+</body>
+</html>
