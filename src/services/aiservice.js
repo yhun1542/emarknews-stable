@@ -6,7 +6,7 @@ class AIService {
     this.openaiApiKey = process.env.OPENAI_API_KEY;
     this.cache = new Map();
     this.requestCount = 0;
-    this.maxRequestsPerMinute = 50;
+    this.maxRequestsPerMinute = 0; // AI 기능 일시 비활성화
     this.lastResetTime = Date.now();
   }
 
