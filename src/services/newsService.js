@@ -1,5 +1,5 @@
-const Parser = require('rss-parser');
 const axios = require('axios');
+const Parser = require('rss-parser');
 const logger = require('../utils/logger');
 const { redis } = require('../config/database');
 const aiService = require('./aiservice');
@@ -47,11 +47,45 @@ class NewsService {
                     { type: 'newsapi', params: { category: 'general', country: 'us' } }
                 ],
                 rss: [
+                    // 영미권 메이저
                     { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC', lang: 'en' },
                     { url: 'https://rss.cnn.com/rss/edition_world.rss', name: 'CNN', lang: 'en' },
                     { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', name: 'New York Times', lang: 'en' },
-                    { url: 'https://www.reuters.com/pf/feeds/world.xml', name: 'Reuters World', lang: 'en' }, // 대안 공식 URL (검색 기반)
-                    { url: 'https://abcnews.go.com/abcnews/internationalheadlines/rss', name: 'ABC News', lang: 'en' }
+                    { url: 'https://www.reuters.com/pf/feeds/world.xml', name: 'Reuters World', lang: 'en' },
+                    { url: 'https://abcnews.go.com/abcnews/internationalheadlines/rss', name: 'ABC News', lang: 'en' },
+                    { url: 'https://www.theguardian.com/world/rss', name: 'The Guardian', lang: 'en' },
+                    { url: 'https://feeds.washingtonpost.com/rss/world', name: 'Washington Post', lang: 'en' },
+                    { url: 'https://feeds.npr.org/1004/rss.xml', name: 'NPR World', lang: 'en' },
+                    
+                    // 통신사 및 글로벌
+                    { url: 'https://feeds.apnews.com/rss/apf-intlnews', name: 'Associated Press', lang: 'en' },
+                    { url: 'https://www.bloomberg.com/politics/feeds/site.xml', name: 'Bloomberg Politics', lang: 'en' },
+                    { url: 'https://feeds.content.dowjones.io/public/rss/RSSWorldNews', name: 'Wall Street Journal', lang: 'en' },
+                    { url: 'https://www.ft.com/world?format=rss', name: 'Financial Times', lang: 'en' },
+                    { url: 'https://www.economist.com/international/rss.xml', name: 'The Economist', lang: 'en' },
+                    
+                    // 국제 다언어
+                    { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera', lang: 'en' },
+                    { url: 'https://rss.dw.com/rdf/rss-en-world', name: 'Deutsche Welle', lang: 'en' },
+                    { url: 'https://www.france24.com/en/rss', name: 'France 24', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/euronews/en/world', name: 'Euronews', lang: 'en' },
+                    
+                    // 아시아-태평양
+                    { url: 'https://www.scmp.com/rss/4/feed', name: 'South China Morning Post', lang: 'en' },
+                    { url: 'https://www.japantimes.co.jp/feed/', name: 'Japan Times', lang: 'en' },
+                    { url: 'https://en.yna.co.kr/RSS/news.xml', name: 'Yonhap News', lang: 'en' },
+                    
+                    // 추가 신뢰할 수 있는 소스들
+                    { url: 'https://feeds.skynews.com/feeds/rss/world.xml', name: 'Sky News', lang: 'en' },
+                    { url: 'https://feeds.reuters.com/reuters/topNews', name: 'Reuters Top News', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/time/world', name: 'TIME World', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/newsweek/world', name: 'Newsweek World', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/usnews/world', name: 'US News World', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/cbsnews/world', name: 'CBS News World', lang: 'en' },
+                    { url: 'https://feeds.nbcnews.com/nbcnews/public/world', name: 'NBC News World', lang: 'en' },
+                    { url: 'https://feeds.foxnews.com/foxnews/world', name: 'Fox News World', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/independent/world', name: 'The Independent', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/thetimes/world', name: 'The Times', lang: 'en' }
                 ]
             },
             korea: {
@@ -158,7 +192,7 @@ class NewsService {
             .filter(result => result.status === 'fulfilled' && result.value && result.value.length > 0)
             .flatMap(result => result.value);
         const uniqueArticles = this.deduplicateAndSort(rawArticles);
-        const processedArticles = await this.processArticlesWithAI(uniqueArticles.slice(0, 50), section);
+        const processedArticles = await this.processArticlesWithAI(uniqueArticles.slice(0, 100), section);
         const finalResult = {
             articles: processedArticles,
             total: processedArticles.length,
@@ -179,15 +213,249 @@ class NewsService {
     // Fetch 함수 (Gemini 장점: v2 X API + normalize)
     async fetchFromNewsAPI(params, language = 'en') {
         if (!NEWS_API_KEY) return [];
+        
+        // 고급 세계뉴스 수집 시스템 (첨부 파일 기반)
+        const TARGET_RESULTS = 80;      // 목표 확보 개수 (60→80으로 증가)
+        const HOURS_WINDOW = 24;        // 최근 24시간 (12→24시간으로 완화)
+        const PAGE_SIZE = 100;          // everything 최대 100
+        
+        const DOMAIN_WHITELIST = [
+            // 국제·글로벌 메이저
+            "reuters.com","apnews.com","afp.com","bloomberg.com","wsj.com","ft.com","economist.com",
+            "bbc.com","cnn.com","nytimes.com","washingtonpost.com","theguardian.com",
+            "aljazeera.com","dw.com","spiegel.de","lemonde.fr","elpais.com","scmp.com",
+            // 한국 메이저(영문 포함)
+            "yna.co.kr","koreaherald.com","koreatimes.co.kr"
+        ];
+        
+        const DOMAIN_BLACKLIST = ["news.google.com","news.yahoo.com","flipboard.com"];
+        
+        const HOT_QUERIES = [
+            // 지정학/분쟁/선거
+            "war OR conflict","Ukraine OR Gaza OR Middle East","election OR parliament",
+            "sanctions OR ceasefire","NATO OR UN Security Council",
+            // 거시/시장
+            "Federal Reserve OR interest rates OR inflation","oil prices OR OPEC","stock market OR selloff",
+            "GDP OR recession","FX OR currency crisis",
+            // 테크/산업
+            "AI OR artificial intelligence OR semiconductor","data center OR cloud","electric vehicle OR battery",
+            "chip export controls OR sanctions tech",
+            // 보건/재난
+            "outbreak OR pandemic OR WHO","earthquake OR typhoon OR wildfire OR heatwave",
+            // 기업 이슈
+            "recall OR antitrust OR lawsuit OR settlement","earnings OR guidance",
+            // 동아시아(영문권 보도)
+            "Korea OR Japan OR China summit","North Korea OR missile"
+        ];
+
+        const SOURCE_WEIGHTS = {
+            "reuters.com":5,"apnews.com":5,"afp.com":4,"bloomberg.com":5,"wsj.com":5,"ft.com":5,"economist.com":5,
+            "bbc.com":4,"cnn.com":3,"nytimes.com":5,"washingtonpost.com":4,"theguardian.com":4,
+            "aljazeera.com":4,"dw.com":3,"spiegel.de":3,"lemonde.fr":4,"elpais.com":3,"scmp.com":4,
+            "yna.co.kr":4,"koreaherald.com":3,"koreatimes.co.kr":3
+        };
+
         try {
-            // pageSize를 50으로 증가하여 더 많은 기사 확보
-            const enhancedParams = { ...params, pageSize: 50 };
-            const response = await this.newsApi.get('top-headlines', { params: enhancedParams });
-            return response.data.articles.map(item => this.normalizeArticle(item, 'NewsAPI', language));
+            const allArticles = [];
+            const fromTime = new Date(Date.now() - HOURS_WINDOW * 60 * 60 * 1000).toISOString();
+            const toTime = new Date().toISOString();
+            
+            // 다단계 수집 전략 (확장)
+            const phases = [
+                { queries: HOT_QUERIES.slice(0, 8), sortBy: "publishedAt", pages: 2 },  // 최신순으로 핫한 키워드 (페이지 2개)
+                { queries: HOT_QUERIES.slice(8, 16), sortBy: "relevancy", pages: 2 },  // 관련성순으로 다른 키워드 (페이지 2개)
+                { queries: HOT_QUERIES.slice(0, 8), sortBy: "popularity", pages: 1 },  // 인기순으로 핫한 키워드 재수집
+                { queries: ["breaking news", "latest news", "world news"], sortBy: "publishedAt", pages: 3 } // 일반 뉴스 키워드
+            ];
+
+            for (const phase of phases) {
+                if (allArticles.length >= TARGET_RESULTS) break;
+
+                const promises = [];
+                
+                for (const query of phase.queries) {
+                    for (let page = 1; page <= (phase.pages || 1); page++) {
+                        promises.push((async () => {
+                            try {
+                                // /v2/everything 엔드포인트 사용 (더 많은 기사 확보)
+                                const response = await this.newsApi.get('everything', {
+                                    params: {
+                                        q: query,
+                                        language: language,
+                                        from: fromTime,
+                                        to: toTime,
+                                        sortBy: phase.sortBy,
+                                        pageSize: PAGE_SIZE,
+                                        page: page,
+                                        searchIn: "title,description,content",
+                                        domains: DOMAIN_WHITELIST.join(","),
+                                        excludeDomains: DOMAIN_BLACKLIST.join(",")
+                                    }
+                                });
+
+                                return response.data.articles.map(item => ({
+                                    ...this.normalizeArticle(item, 'NewsAPI', language),
+                                    _query: query,
+                                    _sortBy: phase.sortBy,
+                                    _page: page,
+                                    _sourceScore: this.calculateNewsAPIScore(item, SOURCE_WEIGHTS)
+                                }));
+                            } catch (error) {
+                                logger.warn(`NewsAPI failed for query "${query}" page ${page}: ${error.message}`);
+                                return [];
+                            }
+                        })());
+                    }
+                }
+
+                const results = await Promise.allSettled(promises);
+                results.forEach(result => {
+                    if (result.status === 'fulfilled') {
+                        allArticles.push(...result.value);
+                    }
+                });
+
+                // 단계별로 잠시 대기 (API 제한 고려)
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // 중복 제거 (URL + 제목 기반)
+            const uniqueArticles = this.deduplicateNewsAPIArticles(allArticles);
+            
+            // 최신성 필터 (24시간 이내로 완화)
+            const recentArticles = this.filterRecentArticles(uniqueArticles, 24);
+            
+            // 클러스터링 (유사한 제목 군집화)
+            const clusteredArticles = this.clusterSimilarArticles(recentArticles);
+            
+            // 스코어 기반 정렬 및 상위 60개 선택
+            const topArticles = clusteredArticles
+                .sort((a, b) => (b._sourceScore || 0) - (a._sourceScore || 0))
+                .slice(0, TARGET_RESULTS);
+
+            logger.info(`NewsAPI World: collected ${allArticles.length}, unique ${uniqueArticles.length}, recent ${recentArticles.length}, clustered ${clusteredArticles.length}, top ${topArticles.length}`);
+            return topArticles;
+
         } catch (error) {
             logger.error(`NewsAPI fetch failed: ${error.message}`);
             return [];
         }
+    }
+
+    calculateNewsAPIScore(item, sourceWeights) {
+        const title = (item.title || "");
+        const description = (item.description || "");
+        const url = item.url || "";
+        let score = 0;
+
+        // 출처별 가중치 적용
+        const host = this.getHost(url);
+        for (const [source, weight] of Object.entries(sourceWeights)) {
+            if (host.endsWith(source)) {
+                score += weight;
+                break;
+            }
+        }
+
+        // 영향력 키워드 보너스
+        const IMPACT_KEYWORDS = [
+            "war","conflict","sanction","missile","nuclear",
+            "inflation","rate hike","rate cut","gdp","recession","default","bankruptcy",
+            "ai","semiconductor","chip","export control","data center","battery","ev",
+            "earthquake","typhoon","wildfire","outbreak","pandemic","recall","antitrust","lawsuit","settlement",
+            "election","parliament"
+        ];
+
+        const content = (title + " " + description).toLowerCase();
+        for (const keyword of IMPACT_KEYWORDS) {
+            if (content.includes(keyword)) {
+                score += 2;
+            }
+        }
+
+        // 제목 길이 보너스 (적절한 길이)
+        const titleLength = title.replace(/\s+/g, "").length;
+        if (titleLength >= 30 && titleLength <= 110) {
+            score += 1;
+        }
+
+        // 최신성 보너스
+        if (item.publishedAt) {
+            const hoursAgo = Math.abs(new Date() - new Date(item.publishedAt)) / (1000 * 60 * 60);
+            if (hoursAgo <= 2) score += 2;
+            else if (hoursAgo <= 6) score += 1;
+        }
+
+        return score;
+    }
+
+    getHost(url) {
+        try {
+            return new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+            return "";
+        }
+    }
+
+    deduplicateNewsAPIArticles(articles) {
+        const seen = new Set();
+        const unique = [];
+        
+        for (const article of articles) {
+            const key = (article.url || "") + "||" + (article.title || "");
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(article);
+            }
+        }
+        
+        return unique;
+    }
+
+    clusterSimilarArticles(articles) {
+        // 간단한 클러스터링: 제목 유사도 기반 (임계값 완화)
+        const clusters = [];
+        const SIMILARITY_THRESHOLD = 0.85; // 0.76 → 0.85로 완화 (더 적은 제거)
+        
+        for (const article of articles) {
+            let placed = false;
+            
+            for (const cluster of clusters) {
+                if (this.calculateTitleSimilarity(cluster.representative.title, article.title) >= SIMILARITY_THRESHOLD) {
+                    cluster.items.push(article);
+                    // 더 높은 스코어의 기사를 대표로 선택
+                    if ((article._sourceScore || 0) > (cluster.representative._sourceScore || 0)) {
+                        cluster.representative = article;
+                    }
+                    placed = true;
+                    break;
+                }
+            }
+            
+            if (!placed) {
+                clusters.push({
+                    representative: article,
+                    items: [article]
+                });
+            }
+        }
+        
+        // 각 클러스터의 대표 기사만 반환
+        return clusters.map(cluster => ({
+            ...cluster.representative,
+            _clusterSize: cluster.items.length
+        }));
+    }
+
+    calculateTitleSimilarity(title1, title2) {
+        const tokenize = (s) => (s || "").toLowerCase().replace(/[^a-z0-9가-힣\s]/g, " ").split(/\s+/).filter(w => w.length >= 2);
+        const tokens1 = new Set(tokenize(title1));
+        const tokens2 = new Set(tokenize(title2));
+        
+        const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
+        const union = new Set([...tokens1, ...tokens2]);
+        
+        return union.size ? intersection.size / union.size : 0;
     }
 
     async fetchFromNaverAPI(query, display = 30) {
@@ -375,7 +643,7 @@ class NewsService {
                 // User-Agent 랜덤화로 블로킹 우회 시도
                 this.parser.options.headers['User-Agent'] = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`; // 브라우저 흉내
                 const feed = await this.parser.parseURL(source.url);
-                return feed.items.slice(0, 10).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                return feed.items.slice(0, 15).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
             } catch (error) {
                 logger.warn(`RSS fetch failed from ${source.name}: ${error.message}. Trying fallback if available.`);
                 // Fallback: 대안 URL 시도 (e.g., Reuters 경우)
@@ -383,7 +651,7 @@ class NewsService {
                     try {
                         const fallbackUrl = 'https://www.reuters.com/rssFeed/worldNews'; // 또 다른 대안
                         const feed = await this.parser.parseURL(fallbackUrl);
-                        return feed.items.slice(0, 10).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                        return feed.items.slice(0, 15).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
                     } catch (fallbackError) {
                         logger.error(`Fallback RSS failed for Reuters: ${fallbackError.message}`);
                         return [];
