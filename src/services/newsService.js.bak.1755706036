@@ -22,7 +22,7 @@ class NewsService {
         this.sources = {
             world: {
                 api: [
-                    { type: 'newsapi', params: { category: 'general', country: 'us,gb' } }
+                    { type: 'newsapi', params: { category: 'general', country: 'us,gb' } } // NewsAPI: 세계 뉴스 (US/GB 중심)
                 ],
                 rss: [
                     { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC' },
@@ -31,13 +31,13 @@ class NewsService {
             },
             korea: {
                 api: [
-                    { type: 'naver', params: { query: '뉴스', display: 20 } }
+                    { type: 'naver', params: { query: '뉴스', display: 20 } } // Naver API: 한국 뉴스 검색
                 ],
                 rss: [
                     { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC' }
                 ]
             },
-            kr: {
+            kr: { // korea와 동일하게 매핑
                 api: [
                     { type: 'naver', params: { query: '뉴스', display: 20 } }
                 ],
@@ -47,7 +47,7 @@ class NewsService {
             },
             tech: {
                 api: [
-                    { type: 'newsapi', params: { category: 'technology' } }
+                    { type: 'newsapi', params: { category: 'technology' } } // NewsAPI: 테크 뉴스
                 ],
                 rss: [
                     { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch' },
@@ -58,7 +58,7 @@ class NewsService {
             },
             japan: {
                 api: [
-                    { type: 'newsapi', params: { country: 'jp', category: 'general' } }
+                    { type: 'newsapi', params: { country: 'jp', category: 'general' } } // NewsAPI: 일본 뉴스 (country: jp)
                 ],
                 rss: [
                     { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK' }
@@ -66,7 +66,7 @@ class NewsService {
             },
             business: {
                 api: [
-                    { type: 'newsapi', params: { category: 'business' } }
+                    { type: 'newsapi', params: { category: 'business' } } // NewsAPI: 비즈니스 뉴스
                 ],
                 rss: [
                     { url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg Markets' },
@@ -75,8 +75,8 @@ class NewsService {
             },
             buzz: {
                 api: [
-                    { type: 'twitter', params: { trends: true } },
-                    { type: 'newsapi', params: { category: 'entertainment' } }
+                    { type: 'twitter', params: { trends: true } }, // Twitter API: 트렌딩 토픽 (buzz 생성)
+                    { type: 'newsapi', params: { category: 'entertainment' } } // NewsAPI: 엔터테인먼트 뉴스 추가
                 ],
                 rss: [
                     { url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', name: 'BBC Entertainment' }
@@ -103,33 +103,23 @@ class NewsService {
         }
     }
 
-    // 기사 중요도 평점 계산 (정교화: 더 많은 키워드, recency 보너스, 소스 가중치 세밀화)
-    calculateRating(title, description, source, publishedAt) {
-        let rating = 3; // 기본 평점
+    // 기사 중요도 평점 계산 (기존 유지, API 소스에 가중치 추가)
+    calculateRating(title, description, source) {
+        let rating = 3;
         const content = (title + ' ' + description).toLowerCase();
         
-        // 중요 키워드 가중치 (확장: 더 많은 키워드 추가)
-        if (content.includes('breaking') || content.includes('urgent') || content.includes('alert')) rating += 1.5;
-        if (content.includes('exclusive') || content.includes('special') || content.includes('investigation')) rating += 1;
-        if (content.includes('crisis') || content.includes('emergency') || content.includes('disaster') || content.includes('war') || content.includes('election')) rating += 1;
-        if (content.includes('death') || content.includes('attack') || content.includes('protest')) rating += 0.5;
+        if (content.includes('breaking') || content.includes('urgent')) rating += 1;
+        if (content.includes('exclusive') || content.includes('special')) rating += 0.5;
+        if (content.includes('crisis') || content.includes('emergency')) rating += 0.5;
         
-        // recency 보너스: 최신성 반영 (24시간 내 +1, 1시간 내 +0.5)
-        const now = new Date();
-        const published = new Date(publishedAt);
-        const diffHours = (now - published) / (1000 * 60 * 60);
-        if (diffHours < 1) rating += 0.5;
-        if (diffHours < 24) rating += 1;
+        // 소스별 가중치 (API 소스에 더 높은 가중치)
+        if (source.includes('API')) rating += 0.5; // API 소스 우선
+        if (source === 'BBC' || source === 'CNN' || source === 'NHK') rating += 0.3;
         
-        // 소스별 가중치 (API 우선, 신뢰 소스 추가 가중)
-        if (source.includes('API')) rating += 0.7; // API 소스 우선
-        if (source === 'BBC' || source === 'CNN' || source === 'NHK' || source === 'Reuters' || source === 'AP') rating += 0.5;
-        if (source === 'JTBC' || source === 'TechCrunch') rating += 0.3;
-        
-        return Math.min(5, Math.max(1, Math.round(rating * 10) / 10)); // 1~5 범위 내 소수점 1자리
+        return Math.min(5, Math.max(1, Math.round(rating * 10) / 10));
     }
 
-    // API 호출 헬퍼 함수들 (기존 유지)
+    // API 호출 헬퍼 함수들
     async fetchFromNewsAPI(params) {
         try {
             const response = await axios.get('https://newsapi.org/v2/top-headlines', {
@@ -160,12 +150,12 @@ class NewsService {
                 }
             });
             return response.data.items.map(item => ({
-                title: item.title.replace(/<[^>]+>/g, ''),
+                title: item.title.replace(/<[^>]+>/g, ''), // HTML 태그 제거
                 description: item.description.replace(/<[^>]+>/g, ''),
                 url: item.link,
-                urlToImage: null,
+                urlToImage: null, // Naver는 기본 이미지 없음
                 publishedAt: item.pubDate,
-                source: item.originallink.split('/')[2],
+                source: item.originallink.split('/')[2] + ' (Naver API)', // 도메인 추출
                 content: item.description
             }));
         } catch (error) {
@@ -176,17 +166,19 @@ class NewsService {
 
     async fetchFromTwitterAPI(params) {
         try {
+            // 트렌딩 토픽 가져오기 (예: 전 세계 트렌드)
             const response = await axios.get('https://api.twitter.com/1.1/trends/place.json?id=1', {
                 headers: { Authorization: `Bearer ${TWITTER_BEARER_TOKEN}` }
             });
-            const trends = response.data[0].trends.slice(0, 10);
+            const trends = response.data[0].trends.slice(0, 10); // 상위 10개 트렌드
+            // 각 트렌드를 뉴스-like 아이템으로 변환 (buzz용)
             return trends.map(trend => ({
                 title: trend.name,
                 description: `Trending on X: ${trend.tweet_volume || 'N/A'} tweets`,
                 url: trend.url,
                 urlToImage: null,
                 publishedAt: new Date().toISOString(),
-                source: 'X',
+                source: 'X (Twitter API)',
                 content: trend.name
             }));
         } catch (error) {
@@ -195,7 +187,7 @@ class NewsService {
         }
     }
 
-    async getNews(section = 'world', useCache = true) {
+    async getNews(section = 'world', useCache = true, page = 1, limit = 20) {
         const cacheKey = `news:${section}`;
         
         if (useCache) {
@@ -221,7 +213,7 @@ class NewsService {
         const sources = this.sources[section] || this.sources.world;
         const articles = [];
 
-        // API 소스 먼저 병렬 fetching
+        // API 소스 먼저 병렬 fetching (주요 소스)
         const apiFetches = sources.api?.map(async (apiSource) => {
             if (apiSource.type === 'newsapi') {
                 return this.fetchFromNewsAPI(apiSource.params);
@@ -234,11 +226,11 @@ class NewsService {
         }) || [];
         const apiResults = (await Promise.all(apiFetches)).flat();
 
-        // RSS 소스 병렬 fetching
+        // RSS 소스 병렬 fetching (보조 소스)
         const rssFetches = sources.rss?.map(async (source) => {
             try {
                 const feed = await this.parser.parseURL(source.url);
-                return feed.items.slice(0, 10).map(item => ({
+                return feed.items.slice(0, 50).map(item => ({
                     title: item.title,
                     description: item.contentSnippet || item.content || '',
                     url: item.link,
@@ -254,10 +246,10 @@ class NewsService {
         }) || [];
         const rssResults = (await Promise.all(rssFetches)).flat();
 
-        // API + RSS 결합
+        // API + RSS 결합 (API 우선)
         const rawArticles = [...apiResults, ...rssResults];
 
-        // AI 처리 및 포맷팅 (병렬 처리)
+        // AI 처리 및 포맷팅 (병렬로 처리하여 속도 최적화)
         const processedArticles = await Promise.all(rawArticles.map(async (item) => {
             const title = item.title;
             const description = item.description || '';
@@ -295,7 +287,7 @@ class NewsService {
                 source,
                 publishedAt,
                 timeAgo: this.formatTimeAgo(publishedAt),
-                rating: this.calculateRating(title, description, source, publishedAt), // publishedAt 전달 추가
+                rating: this.calculateRating(title, description, source),
                 tags: await ratingService.generateTags(item),
                 id: Buffer.from(item.url).toString('base64').slice(0, 12),
                 aiDetailedSummary,
@@ -304,41 +296,28 @@ class NewsService {
                 hasTranslation: titleKo !== title || descriptionKo !== description,
                 hasSummary: summaryPoints.length > 0,
                 content: item.content,
-                language: item.language || 'en',
+                language: item.language || 'en', // API에서 언어 추가 가능
                 apiSource: source.includes('API') ? 'API' : 'RSS',
                 section
             };
         }));
 
-        // 중복 제거 및 정교한 정렬: rating 내림차순 우선, 그 다음 publishedAt 내림차순
+        // 중복 제거 (URL 기반) 및 최신 순 정렬
         const uniqueArticles = processedArticles.filter((article, index, self) => 
             index === self.findIndex(a => a.url === article.url)
-        ).sort((a, b) => {
-            // 1. rating 내림차순 (중요도 우선)
-            if (b.rating !== a.rating) return b.rating - a.rating;
-            // 2. publishedAt 내림차순 (동일 rating 내 최신순)
-            return new Date(b.publishedAt) - new Date(a.publishedAt);
-        }).slice(0, 50); // 최대 50개 제한
+        ).sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
-        // 다양성 추가: 상위 10개 중 태그가 너무 집중되지 않도록 섞기 (간단 구현)
-        if (uniqueArticles.length > 10) {
-            const top10 = uniqueArticles.slice(0, 10);
-            const tagMap = new Map();
-            top10.forEach(article => {
-                article.tags.forEach(tag => {
-                    tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
-                });
-            });
-            // 만약 하나의 태그가 5개 이상이면, 나머지 기사에서 섞음 (단순화)
-            if (Array.from(tagMap.values()).some(count => count >= 5)) {
-                uniqueArticles.sort((a, b) => Math.random() - 0.5); // 랜덤 섞기 (다양성 강제)
-                uniqueArticles.sort((a, b) => b.rating - a.rating || new Date(b.publishedAt) - new Date(a.publishedAt)); // 재정렬
-            }
-        }
+        // 페이지네이션 적용
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedArticles = uniqueArticles.slice(startIndex, endIndex);
 
         const result = {
-            articles: uniqueArticles,
+            articles: paginatedArticles,
             total: uniqueArticles.length,
+            page: page,
+            limit: limit,
+            hasMore: endIndex < uniqueArticles.length,
             timestamp: new Date().toISOString(),
             cached: false,
             sources: [...(sources.api?.map(s => s.type) || []), ...(sources.rss?.map(s => s.name) || [])]
@@ -346,7 +325,7 @@ class NewsService {
 
         if (useCache) {
             try {
-                await redis.set(cacheKey, JSON.stringify(result), { EX: 600 });
+                await redis.set(cacheKey, JSON.stringify(result), { EX: 600 }); // 10분 캐시
             } catch (error) {
                 logger.warn('Cache write failed:', error.message);
             }

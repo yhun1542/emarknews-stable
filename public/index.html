@@ -596,6 +596,12 @@
                 this.newsCache = new Map();
                 this.updateInterval = null;
                 this.nextUpdateCountdown = 600;
+                
+                // 페이지네이션 상태 추가
+                this.currentPages = new Map(); // 각 섹션별 현재 페이지
+                this.hasMorePages = new Map(); // 각 섹션별 더 많은 페이지 존재 여부
+                this.isLoadingMore = false; // 추가 로딩 중인지 확인
+                
                 this.init();
             }
 
@@ -603,6 +609,7 @@
                 this.loadCurrency();
                 this.loadNews();
                 this.setupNavigation();
+                this.setupInfiniteScroll(); // 무한 스크롤 설정 추가
                 this.startAutoUpdate();
             }
 

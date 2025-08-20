@@ -65,16 +65,11 @@ router.get('/news/:section?', async (req, res) => {
     }
 
     const useCache = cache !== 'false';
-    const result = await newsService.getNews(section, useCache);
+    const page = parseInt(req.query.page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
     
-    // Apply limit if specified
-    if (result.success && result.data.articles) {
-      const limitNum = parseInt(limit, 10);
-      if (limitNum > 0 && limitNum < result.data.articles.length) {
-        result.data.articles = result.data.articles.slice(0, limitNum);
-      }
-    }
-
+    const result = await newsService.getNews(section, useCache, page, limitNum);
+    
     res.json(result);
     
   } catch (error) {
