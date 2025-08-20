@@ -99,11 +99,18 @@ class NewsService {
                     { type: 'naver', params: { query: '속보 OR 긴급 OR 최신뉴스', display: 30 } }
                 ],
                 rss: [
-                    { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC', lang: 'ko' },
-                    { url: 'https://en.yna.co.kr/rss/topnews.xml', name: 'Yonhap', lang: 'ko' },
-                    { url: 'https://www.koreaherald.com/common/rss_xml.php?ct=010000000000', name: 'Korea Herald', lang: 'ko' },
-                    { url: 'http://world.kbs.co.kr/rss/news.xml?lang=e', name: 'KBS World', lang: 'ko' },
-                    { url: 'http://rss.hani.co.kr/rss/lead.xml', name: '한겨레', lang: 'ko' } // Gemini 추가
+                    // 확인된 작동 피드
+                    { url: 'https://www.yna.co.kr/rss/news.xml', name: 'Yonhap News', lang: 'ko' },
+                    { url: 'https://rss.cnn.com/rss/edition.rss', name: 'CNN International', lang: 'en' },
+                    { url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml', name: 'BBC Asia', lang: 'en' },
+                    { url: 'https://www.reuters.com/rssFeed/worldNews', name: 'Reuters World', lang: 'en' },
+                    { url: 'https://rss.dw.com/rss/LK/asia', name: 'Deutsche Welle Asia', lang: 'en' },
+                    // 대안 한국 관련 피드
+                    { url: 'https://en.yna.co.kr/rss/topnews.xml', name: 'Yonhap English', lang: 'en' },
+                    { url: 'https://www.koreaherald.com/common/rss_xml.php?ct=010000000000', name: 'Korea Herald', lang: 'en' },
+                    { url: 'https://rss.joins.com/news.xml', name: 'JoongAng Daily', lang: 'ko' },
+                    { url: 'https://rss.hankyung.com/news/economy.xml', name: 'Hankyung Economy', lang: 'ko' },
+                    { url: 'https://rss.mk.co.kr/news.xml', name: 'Maeil Business', lang: 'ko' }
                 ]
             },
             kr: { // korea와 동일
@@ -111,11 +118,18 @@ class NewsService {
                     { type: 'naver', params: { query: '속보 OR 긴급 OR 최신뉴스', display: 30 } }
                 ],
                 rss: [
-                    { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC', lang: 'ko' },
-                    { url: 'https://en.yna.co.kr/rss/topnews.xml', name: 'Yonhap', lang: 'ko' },
-                    { url: 'https://www.koreaherald.com/common/rss_xml.php?ct=010000000000', name: 'Korea Herald', lang: 'ko' },
-                    { url: 'http://world.kbs.co.kr/rss/news.xml?lang=e', name: 'KBS World', lang: 'ko' },
-                    { url: 'http://rss.hani.co.kr/rss/lead.xml', name: '한겨레', lang: 'ko' }
+                    // 확인된 작동 피드
+                    { url: 'https://www.yna.co.kr/rss/news.xml', name: 'Yonhap News', lang: 'ko' },
+                    { url: 'https://rss.cnn.com/rss/edition.rss', name: 'CNN International', lang: 'en' },
+                    { url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml', name: 'BBC Asia', lang: 'en' },
+                    { url: 'https://www.reuters.com/rssFeed/worldNews', name: 'Reuters World', lang: 'en' },
+                    { url: 'https://rss.dw.com/rss/LK/asia', name: 'Deutsche Welle Asia', lang: 'en' },
+                    // 대안 한국 관련 피드
+                    { url: 'https://en.yna.co.kr/rss/topnews.xml', name: 'Yonhap English', lang: 'en' },
+                    { url: 'https://www.koreaherald.com/common/rss_xml.php?ct=010000000000', name: 'Korea Herald', lang: 'en' },
+                    { url: 'https://rss.joins.com/news.xml', name: 'JoongAng Daily', lang: 'ko' },
+                    { url: 'https://rss.hankyung.com/news/economy.xml', name: 'Hankyung Economy', lang: 'ko' },
+                    { url: 'https://rss.mk.co.kr/news.xml', name: 'Maeil Business', lang: 'ko' }
                 ]
             },
             tech: {
@@ -776,8 +790,8 @@ class NewsService {
             // 중복 제거 (URL + 제목 기반)
             const uniqueArticles = this.deduplicateNaverArticles(allArticles);
             
-            // 최신성 필터 (7일 이내로 완화)
-            const recentArticles = this.filterRecentArticles(uniqueArticles, 24 * 7);
+            // 최신성 필터 (RSS는 24시간, 네이버 API는 7일)
+            const recentArticles = this.filterRecentArticles(uniqueArticles, 24);
             
             // 스코어 기반 정렬 및 상위 30개 선택
             const topArticles = recentArticles
@@ -885,7 +899,21 @@ class NewsService {
                 // User-Agent 랜덤화로 블로킹 우회 시도
                 this.parser.options.headers['User-Agent'] = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`; // 브라우저 흉내
                 const feed = await this.parser.parseURL(source.url);
-                return feed.items.slice(0, 15).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                
+                // 모든 아이템을 정규화한 후 최신성 필터 적용
+                const allItems = feed.items.map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                
+                // 최신 24시간 이내 기사만 필터링
+                const recentItems = this.filterRecentArticles(allItems, 24);
+                
+                // 최신 기사가 없으면 최근 3일 이내로 완화
+                if (recentItems.length === 0) {
+                    const relaxedItems = this.filterRecentArticles(allItems, 72);
+                    return relaxedItems.slice(0, 15);
+                }
+                
+                return recentItems.slice(0, 15);
+                
             } catch (error) {
                 logger.warn(`RSS fetch failed from ${source.name}: ${error.message}. Trying fallback if available.`);
                 // Fallback: 대안 URL 시도 (e.g., Reuters 경우)
@@ -893,7 +921,9 @@ class NewsService {
                     try {
                         const fallbackUrl = 'https://www.reuters.com/rssFeed/worldNews'; // 또 다른 대안
                         const feed = await this.parser.parseURL(fallbackUrl);
-                        return feed.items.slice(0, 15).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                        const allItems = feed.items.map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                        const recentItems = this.filterRecentArticles(allItems, 24);
+                        return recentItems.length > 0 ? recentItems.slice(0, 15) : this.filterRecentArticles(allItems, 72).slice(0, 15);
                     } catch (fallbackError) {
                         logger.error(`Fallback RSS failed for Reuters: ${fallbackError.message}`);
                         return [];
