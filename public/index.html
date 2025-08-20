@@ -993,6 +993,10 @@
             // 전역 newsApp 설정
             window.newsApp = newsApp;
             
+            // 네비게이션 설정
+            newsApp.setupNavigation();
+            console.log('✅ 네비게이션 설정 완료');
+            
             // 초기 뉴스 로딩
             console.log('🔄 초기 뉴스 로딩 시작...');
             try {
