@@ -1,32 +1,57 @@
 const Parser = require('rss-parser');
+const axios = require('axios');
 const logger = require('../utils/logger');
 const { redis } = require('../config/database');
 const aiService = require('./aiservice');
 const ratingService = require('./ratingservice');
-const axios = require('axios'); // 추가: API 호출을 위한 라이브러리 (설치 필요 가정)
 
-// 환경 변수나 config에서 API 키 로드 (보안을 위해 코드에 하드코딩하지 않음)
+// 환경 변수 로드
 const NEWS_API_KEY = process.env.NEWS_API_KEY || 'your-newsapi-key-here';
 const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || 'your-naver-client-id';
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'your-naver-client-secret';
-const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN || 'your-twitter-bearer-token';
+const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || 'your-twitter-bearer-token';
+const API_TIMEOUT = 8000; // API 호출 8초 타임아웃
+const RSS_TIMEOUT = 5000; // RSS는 더 빠른 실패를 위해 5초 타임아웃
 
 class NewsService {
     constructor() {
-        this.parser = new Parser({ 
-            timeout: 10000,
+        this.parser = new Parser({
+            timeout: RSS_TIMEOUT,
             headers: {
-                'User-Agent': 'EmarkNews/1.0 (News Aggregator)'
+                'User-Agent': 'EmarkNews/2.0 (Advanced News Aggregator)'
             }
         });
+        // Axios 인스턴스 설정 (Gemini 장점: 효율적 연결 관리)
+        this.newsApi = axios.create({
+            baseURL: 'https://newsapi.org/v2/',
+            headers: NEWS_API_KEY ? { 'X-Api-Key': NEWS_API_KEY } : {},
+            timeout: API_TIMEOUT
+        });
+        this.naverApi = axios.create({
+            baseURL: 'https://openapi.naver.com/v1/search/',
+            headers: {
+                'X-Naver-Client-Id': NAVER_CLIENT_ID || '',
+                'X-Naver-Client-Secret': NAVER_CLIENT_SECRET || ''
+            },
+            timeout: API_TIMEOUT
+        });
+        this.xApi = axios.create({
+            baseURL: 'https://api.twitter.com/2/',
+            headers: X_BEARER_TOKEN ? { 'Authorization': `Bearer ${X_BEARER_TOKEN}` } : {},
+            timeout: API_TIMEOUT
+        });
+        // 소스 정의 (Grok 장점: 섹션별 API/RSS 구조 + 다양한 RSS)
         this.sources = {
             world: {
                 api: [
                     { type: 'newsapi', params: { category: 'general', country: 'us,gb' } }
                 ],
                 rss: [
-                    { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC' },
-                    { url: 'https://rss.cnn.com/rss/edition_world.rss', name: 'CNN' }
+                    { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC', lang: 'en' },
+                    { url: 'https://rss.cnn.com/rss/edition_world.rss', name: 'CNN', lang: 'en' },
+                    { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', name: 'New York Times', lang: 'en' },
+                    { url: 'https://www.reuters.com/arc/outboundfeeds/news-feed/?outputType=xml', name: 'Reuters', lang: 'en' }, // 유효 URL 수정
+                    { url: 'https://abcnews.go.com/abcnews/internationalheadlines/rss', name: 'ABC News', lang: 'en' }
                 ]
             },
             korea: {
@@ -34,15 +59,23 @@ class NewsService {
                     { type: 'naver', params: { query: '뉴스', display: 20 } }
                 ],
                 rss: [
-                    { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC' }
+                    { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC', lang: 'ko' },
+                    { url: 'https://en.yna.co.kr/rss/topnews.xml', name: 'Yonhap', lang: 'ko' },
+                    { url: 'https://www.koreaherald.com/common/rss_xml.php?ct=010000000000', name: 'Korea Herald', lang: 'ko' },
+                    { url: 'http://world.kbs.co.kr/rss/news.xml?lang=e', name: 'KBS World', lang: 'ko' },
+                    { url: 'http://rss.hani.co.kr/rss/lead.xml', name: '한겨레', lang: 'ko' } // Gemini 추가
                 ]
             },
-            kr: {
+            kr: { // korea와 동일
                 api: [
                     { type: 'naver', params: { query: '뉴스', display: 20 } }
                 ],
                 rss: [
-                    { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC' }
+                    { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC', lang: 'ko' },
+                    { url: 'https://en.yna.co.kr/rss/topnews.xml', name: 'Yonhap', lang: 'ko' },
+                    { url: 'https://www.koreaherald.com/common/rss_xml.php?ct=010000000000', name: 'Korea Herald', lang: 'ko' },
+                    { url: 'http://world.kbs.co.kr/rss/news.xml?lang=e', name: 'KBS World', lang: 'ko' },
+                    { url: 'http://rss.hani.co.kr/rss/lead.xml', name: '한겨레', lang: 'ko' }
                 ]
             },
             tech: {
@@ -50,10 +83,11 @@ class NewsService {
                     { type: 'newsapi', params: { category: 'technology' } }
                 ],
                 rss: [
-                    { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch' },
-                    { url: 'https://www.androidauthority.com/feed/', name: 'Android Authority' },
-                    { url: 'https://9to5mac.com/feed/', name: '9to5Mac' },
-                    { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica' }
+                    { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch', lang: 'en' },
+                    { url: 'https://www.androidauthority.com/feed/', name: 'Android Authority', lang: 'en' },
+                    { url: 'https://9to5mac.com/feed/', name: '9to5Mac', lang: 'en' },
+                    { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica', lang: 'en' },
+                    { url: 'https://www.wired.com/feed/rss', name: 'Wired', lang: 'en' } // Gemini 추가
                 ]
             },
             japan: {
@@ -61,7 +95,7 @@ class NewsService {
                     { type: 'newsapi', params: { country: 'jp', category: 'general' } }
                 ],
                 rss: [
-                    { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK' }
+                    { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK', lang: 'ja' }
                 ]
             },
             business: {
@@ -69,8 +103,8 @@ class NewsService {
                     { type: 'newsapi', params: { category: 'business' } }
                 ],
                 rss: [
-                    { url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg Markets' },
-                    { url: 'https://feeds.feedburner.com/wsj/xml/rss/3_7085.xml', name: 'WSJ Business' }
+                    { url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg Markets', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/wsj/xml/rss/3_7085.xml', name: 'WSJ Business', lang: 'en' }
                 ]
             },
             buzz: {
@@ -79,308 +113,245 @@ class NewsService {
                     { type: 'newsapi', params: { category: 'entertainment' } }
                 ],
                 rss: [
-                    { url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', name: 'BBC Entertainment' }
+                    { url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', name: 'BBC Entertainment', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch', lang: 'en' }, // Gemini
+                    { url: 'https://www.wired.com/feed/rss', name: 'Wired', lang: 'en' } // Gemini
                 ]
             }
         };
     }
 
-    // 시간 차이 계산 함수 (기존 유지)
-    formatTimeAgo(publishedAt) {
-        const now = new Date();
-        const published = new Date(publishedAt);
-        const diffMs = now - published;
-        const diffMins = Math.floor(diffMs / (1000 * 60));
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        if (diffMins < 60) {
-            return `${diffMins}분 전`;
-        } else if (diffHours < 24) {
-            return `${diffHours}시간 전`;
-        } else {
-            return `${diffDays}일 전`;
-        }
-    }
-
-    // 기사 중요도 평점 계산 (정교화: 더 많은 키워드, recency 보너스, 소스 가중치 세밀화)
-    calculateRating(title, description, source, publishedAt) {
-        let rating = 3; // 기본 평점
-        const content = (title + ' ' + description).toLowerCase();
-        
-        // 중요 키워드 가중치 (확장: 더 많은 키워드 추가)
-        if (content.includes('breaking') || content.includes('urgent') || content.includes('alert')) rating += 1.5;
-        if (content.includes('exclusive') || content.includes('special') || content.includes('investigation')) rating += 1;
-        if (content.includes('crisis') || content.includes('emergency') || content.includes('disaster') || content.includes('war') || content.includes('election')) rating += 1;
-        if (content.includes('death') || content.includes('attack') || content.includes('protest')) rating += 0.5;
-        
-        // recency 보너스: 최신성 반영 (24시간 내 +1, 1시간 내 +0.5)
-        const now = new Date();
-        const published = new Date(publishedAt);
-        const diffHours = (now - published) / (1000 * 60 * 60);
-        if (diffHours < 1) rating += 0.5;
-        if (diffHours < 24) rating += 1;
-        
-        // 소스별 가중치 (API 우선, 신뢰 소스 추가 가중)
-        if (source.includes('API')) rating += 0.7; // API 소스 우선
-        if (source === 'BBC' || source === 'CNN' || source === 'NHK' || source === 'Reuters' || source === 'AP') rating += 0.5;
-        if (source === 'JTBC' || source === 'TechCrunch') rating += 0.3;
-        
-        return Math.min(5, Math.max(1, Math.round(rating * 10) / 10)); // 1~5 범위 내 소수점 1자리
-    }
-
-    // API 호출 헬퍼 함수들 (기존 유지)
-    async fetchFromNewsAPI(params) {
-        try {
-            const response = await axios.get('https://newsapi.org/v2/top-headlines', {
-                params: { ...params, apiKey: NEWS_API_KEY, pageSize: 20 }
-            });
-            return response.data.articles.map(article => ({
-                title: article.title,
-                description: article.description || '',
-                url: article.url,
-                urlToImage: article.urlToImage,
-                publishedAt: article.publishedAt,
-                source: article.source.name,
-                content: article.content || article.description
-            }));
-        } catch (error) {
-            logger.error('NewsAPI fetch failed:', error.message);
-            return [];
-        }
-    }
-
-    async fetchFromNaverAPI(params) {
-        try {
-            const response = await axios.get('https://openapi.naver.com/v1/search/news.json', {
-                params: { ...params, sort: 'date' },
-                headers: {
-                    'X-Naver-Client-Id': NAVER_CLIENT_ID,
-                    'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
-                }
-            });
-            return response.data.items.map(item => ({
-                title: item.title.replace(/<[^>]+>/g, ''),
-                description: item.description.replace(/<[^>]+>/g, ''),
-                url: item.link,
-                urlToImage: null,
-                publishedAt: item.pubDate,
-                source: item.originallink.split('/')[2],
-                content: item.description
-            }));
-        } catch (error) {
-            logger.error('Naver API fetch failed:', error.message);
-            return [];
-        }
-    }
-
-    async fetchFromTwitterAPI(params) {
-        try {
-            const response = await axios.get('https://api.twitter.com/1.1/trends/place.json?id=1', {
-                headers: { Authorization: `Bearer ${TWITTER_BEARER_TOKEN}` }
-            });
-            const trends = response.data[0].trends.slice(0, 10);
-            return trends.map(trend => ({
-                title: trend.name,
-                description: `Trending on X: ${trend.tweet_volume || 'N/A'} tweets`,
-                url: trend.url,
-                urlToImage: null,
-                publishedAt: new Date().toISOString(),
-                source: 'X',
-                content: trend.name
-            }));
-        } catch (error) {
-            logger.error('Twitter API fetch failed:', error.message);
-            return [];
-        }
-    }
-
+    // 메인 로직 (Gemini 장점: allSettled + 캐시 버전)
     async getNews(section = 'world', useCache = true) {
-        const cacheKey = `news:${section}`;
-        
+        const cacheKey = `news_v3:${section}`;
         if (useCache) {
             try {
                 const cached = await redis.get(cacheKey);
                 if (cached) {
+                    logger.info(`Cache hit for section: ${section}`);
                     const parsedCache = JSON.parse(cached);
-                    return {
-                        success: true,
-                        data: {
-                            articles: parsedCache.articles,
-                            total: parsedCache.total,
-                            timestamp: parsedCache.timestamp,
-                            cached: true
-                        }
-                    };
+                    return { success: true, data: { ...parsedCache, cached: true } };
                 }
             } catch (error) {
                 logger.warn('Cache read failed:', error.message);
             }
         }
-
+        logger.info(`Fetching fresh data for section: ${section}`);
         const sources = this.sources[section] || this.sources.world;
-        const articles = [];
-
-        // API 소스 먼저 병렬 fetching
-        const apiFetches = sources.api?.map(async (apiSource) => {
+        const fetchPromises = [];
+        // API promises (Grok + Gemini 쿼리 다양화)
+        sources.api.forEach(apiSource => {
             if (apiSource.type === 'newsapi') {
-                return this.fetchFromNewsAPI(apiSource.params);
+                fetchPromises.push(this.fetchFromNewsAPI(apiSource.params, 'en'));
             } else if (apiSource.type === 'naver') {
-                return this.fetchFromNaverAPI(apiSource.params);
+                fetchPromises.push(this.fetchFromNaverAPI(apiSource.params.query, apiSource.params.display));
             } else if (apiSource.type === 'twitter') {
-                return this.fetchFromTwitterAPI(apiSource.params);
+                fetchPromises.push(this.fetchFromXAPI());
             }
-            return [];
-        }) || [];
-        const apiResults = (await Promise.all(apiFetches)).flat();
-
-        // RSS 소스 병렬 fetching
-        const rssFetches = sources.rss?.map(async (source) => {
-            try {
-                const feed = await this.parser.parseURL(source.url);
-                return feed.items.slice(0, 10).map(item => ({
-                    title: item.title,
-                    description: item.contentSnippet || item.content || '',
-                    url: item.link,
-                    urlToImage: item.enclosure?.url || null,
-                    publishedAt: item.pubDate || new Date().toISOString(),
-                    source: source.name,
-                    content: item.content || item.contentSnippet
-                }));
-            } catch (error) {
-                logger.error(`RSS fetch failed from ${source.name}:`, error.message);
-                return [];
-            }
-        }) || [];
-        const rssResults = (await Promise.all(rssFetches)).flat();
-
-        // API + RSS 결합
-        const rawArticles = [...apiResults, ...rssResults];
-
-        // AI 처리 및 포맷팅 (병렬 처리)
-        const processedArticles = await Promise.all(rawArticles.map(async (item) => {
-            const title = item.title;
-            const description = item.description || '';
-            const publishedAt = item.publishedAt;
-            const source = item.source;
-
-            let titleKo = title;
-            let descriptionKo = description;
-            let summaryPoints = ['요약 정보를 생성 중입니다...'];
-            let aiDetailedSummary = '';
-            let originalTextKo = description;
-
-            try {
-                titleKo = await aiService.translateToKorean(title) || title;
-                descriptionKo = await aiService.translateToKorean(description) || description;
-                originalTextKo = descriptionKo;
-                summaryPoints = await aiService.generateSummaryPoints(descriptionKo || description) || ['요약 정보를 생성할 수 없습니다.'];
-                aiDetailedSummary = await aiService.generateDetailedSummary({ title: titleKo || title, content: descriptionKo || description }) || '상세 요약을 생성할 수 없습니다.';
-            } catch (aiError) {
-                logger.warn(`AI processing failed for article: ${title.substring(0, 50)}...`, aiError.message);
-                titleKo = title;
-                descriptionKo = description;
-                originalTextKo = description;
-                summaryPoints = ['AI 요약 서비스를 일시적으로 사용할 수 없습니다.'];
-                aiDetailedSummary = '상세 요약을 생성할 수 없습니다.';
-            }
-
-            return {
-                title,
-                titleKo,
-                description,
-                descriptionKo,
-                url: item.url,
-                urlToImage: item.urlToImage,
-                source,
-                publishedAt,
-                timeAgo: this.formatTimeAgo(publishedAt),
-                rating: this.calculateRating(title, description, source, publishedAt), // publishedAt 전달 추가
-                tags: await ratingService.generateTags(item),
-                id: Buffer.from(item.url).toString('base64').slice(0, 12),
-                aiDetailedSummary,
-                originalTextKo,
-                summaryPoints,
-                hasTranslation: titleKo !== title || descriptionKo !== description,
-                hasSummary: summaryPoints.length > 0,
-                content: item.content,
-                language: item.language || 'en',
-                apiSource: source.includes('API') ? 'API' : 'RSS',
-                section
-            };
-        }));
-
-        // 중복 제거
-        const uniqueArticles = processedArticles.filter((article, index, self) => 
-            index === self.findIndex(a => a.url === article.url)
-        );
-
-        // ⭐ 스마트 정렬 (Hot Score 알고리즘) 적용 ⭐
-        const smartSortedArticles = this.smartSort(uniqueArticles).slice(0, 50); // 최대 50개 제한
-
-        const result = {
-            articles: smartSortedArticles,
-            total: uniqueArticles.length,
+        });
+        // RSS promises (Grok 다양성 + Gemini allSettled)
+        if (sources.rss.length > 0) {
+            fetchPromises.push(this.fetchFromRSS(sources.rss));
+        }
+        const results = await Promise.allSettled(fetchPromises);
+        const rawArticles = results
+            .filter(result => result.status === 'fulfilled' && result.value && result.value.length > 0)
+            .flatMap(result => result.value);
+        const uniqueArticles = this.deduplicateAndSort(rawArticles);
+        const processedArticles = await this.processArticlesWithAI(uniqueArticles.slice(0, 50), section);
+        const finalResult = {
+            articles: processedArticles,
+            total: processedArticles.length,
             timestamp: new Date().toISOString(),
             cached: false,
             sources: [...(sources.api?.map(s => s.type) || []), ...(sources.rss?.map(s => s.name) || [])]
         };
-
-        if (useCache) {
+        if (useCache && processedArticles.length > 0) {
             try {
-                await redis.set(cacheKey, JSON.stringify(result), { EX: 600 });
+                await redis.set(cacheKey, JSON.stringify(finalResult), { EX: 600 });
             } catch (error) {
                 logger.warn('Cache write failed:', error.message);
             }
         }
-
-        return {
-            success: true,
-            data: result
-        };
+        return { success: true, data: finalResult };
     }
 
-    // --- ⭐ [신규 추가] 스마트 정렬 함수 (Hot Score 알고리즘) ⭐ ---
-    /**
-     * 기사를 중요도(Rating)와 최신성(Recency)을 조합하여 정렬합니다.
-     * @param {Array} articles 정렬할 기사 배열
-     * @returns {Array} 정렬된 기사 배열
-     */
-    smartSort(articles) {
-        const now = new Date().getTime();
-        
-        // Gravity(중력) 설정: 값이 클수록 오래된 기사의 점수가 급격히 감소합니다. (1.5 ~ 1.8 권장)
-        const gravity = 1.6; 
+    // Fetch 함수 (Gemini 장점: v2 X API + normalize)
+    async fetchFromNewsAPI(params, language) {
+        if (!NEWS_API_KEY) return [];
+        try {
+            const response = await this.newsApi.get('top-headlines', { params });
+            return response.data.articles.map(item => this.normalizeArticle(item, 'NewsAPI', language));
+        } catch (error) {
+            logger.error(`NewsAPI fetch failed: ${error.message}`);
+            return [];
+        }
+    }
 
-        const articlesWithScore = articles.map(article => {
-            const publishedTime = new Date(article.publishedAt).getTime();
+    async fetchFromNaverAPI(query, display = 20) {
+        if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) return [];
+        try {
+            const response = await this.naverApi.get('news.json', { params: { query, display, sort: 'date' } });
+            return response.data.items.map(item => this.normalizeArticle(item, 'NaverAPI', 'ko'));
+        } catch (error) {
+            logger.error(`Naver API fetch failed: ${error.message}`);
+            return [];
+        }
+    }
 
-            // 유효하지 않은 날짜 처리
-            if (isNaN(publishedTime)) {
-                logger.warn(`Invalid date encountered for article: ${article.url}`);
-                return { ...article, debugScore: 0 };
+    async fetchFromXAPI() {
+        if (!X_BEARER_TOKEN) return [];
+        try {
+            const query = '(trending OR viral OR buzz) -is:retweet lang:en';
+            const response = await this.xApi.get('tweets/search/recent', {
+                params: {
+                    query: query,
+                    max_results: 30,
+                    'tweet.fields': 'created_at,text',
+                    'expansions': 'author_id',
+                    'user.fields': 'name,username,profile_image_url'
+                }
+            });
+            const users = response.data.includes?.users?.reduce((acc, user) => { acc[user.id] = user; return acc; }, {}) || {};
+            return response.data.data.map(item => this.normalizeArticle({ ...item, user: users[item.author_id] }, 'X_API', 'en'));
+        } catch (error) {
+            logger.error(`X API fetch failed: ${error.message}`);
+            return [];
+        }
+    }
+
+    async fetchFromRSS(sources) {
+        const rssPromises = sources.map(async (source) => {
+            try {
+                const feed = await this.parser.parseURL(source.url);
+                return feed.items.slice(0, 10).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+            } catch (error) {
+                logger.warn(`RSS fetch failed from ${source.name}: ${error.message}`);
+                return [];
             }
-            
-            // 1. 기사 경과 시간 (시간 단위, 최소 0)
-            const ageInHours = Math.max(0, (now - publishedTime) / (1000 * 60 * 60));
-            
-            // 2. 중요도 점수 (평점 기반, rating은 1~5점)
-            // 평점(Rating)에 제곱을 하여 중요한 기사(Rating 4~5)의 가중치를 더 강조합니다.
-            const rating = article.rating || 3; // 평점이 없으면 기본값 3
-            const importanceScore = Math.pow(rating, 2); 
-
-            // 3. Hot Score 계산 (Hacker News 알고리즘 응용)
-            // Score = Importance / (Age + 2)^Gravity
-            // 시간이 지날수록 분모가 커져서 전체 점수가 감소합니다.
-            const score = importanceScore / Math.pow(ageInHours + 2, gravity);
-            
-            // 디버깅 및 확인을 위해 score를 기사 객체에 포함하여 반환 (프론트엔드에서 확인 가능)
-            return { ...article, debugScore: parseFloat(score.toFixed(3)) };
         });
-
-        // 최종 점수순으로 정렬 (내림차순)
-        return articlesWithScore.sort((a, b) => b.debugScore - a.debugScore);
+        const results = await Promise.all(rssPromises);
+        return results.flat();
     }
+
+    // Normalize (Gemini 장점)
+    normalizeArticle(item, apiSource, language, sourceName = null) {
+        let title, description, url, urlToImage, publishedAt, source;
+        try {
+            switch (apiSource) {
+                case 'NewsAPI':
+                    title = item.title;
+                    description = item.description || item.content || '';
+                    url = item.url;
+                    urlToImage = item.urlToImage;
+                    publishedAt = item.publishedAt || new Date().toISOString();
+                    source = item.source?.name || 'NewsAPI';
+                    break;
+                case 'NaverAPI':
+                    title = this.stripHtml(item.title);
+                    description = this.stripHtml(item.description);
+                    url = item.originallink || item.link;
+                    urlToImage = null;
+                    publishedAt = item.pubDate || new Date().toISOString();
+                    source = 'Naver News';
+                    break;
+                case 'X_API':
+                    title = `Trending on X: ${item.text.substring(0, 80)}...`;
+                    description = item.text;
+                    source = `X (@${item.user?.username || 'unknown'})`;
+                    url = `https://twitter.com/${item.user?.username || 'x'}/status/${item.id}`;
+                    urlToImage = item.user?.profile_image_url?.replace('_normal', '') || null;
+                    publishedAt = item.created_at || new Date().toISOString();
+                    break;
+                case 'RSS':
+                    title = item.title;
+                    description = item.contentSnippet || item.content || '';
+                    url = item.link;
+                    urlToImage = item.enclosure?.url || null;
+                    publishedAt = item.pubDate || new Date().toISOString();
+                    source = sourceName || 'RSS Feed';
+                    break;
+                default:
+                    return null;
+            }
+            if (!title || !url) return null;
+            return { title, description, content: description, url, urlToImage, source, publishedAt, apiSource, language };
+        } catch (error) {
+            logger.warn(`Normalization failed from ${apiSource}: ${error.message}`);
+            return null;
+        }
+    }
+
+    // 후처리 (Grok + Gemini)
+    deduplicateAndSort(articles) {
+        return articles
+            .filter(article => article !== null)
+            .filter((article, index, self) => index === self.findIndex(a => a.url === article.url))
+            .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+    }
+
+    // AI 처리 (Gemini 장점: 태스크 분리 + Grok 플래그)
+    async processArticlesWithAI(articles, section) {
+        return Promise.all(articles.map(async (article) => {
+            let titleKo = article.title;
+            let descriptionKo = article.description;
+            let summaryPoints = ['요약 정보를 생성 중입니다...'];
+            let aiDetailedSummary = '';
+            let hasTranslation = false;
+            const needsTranslation = article.language !== 'ko';
+            const aiTasks = [];
+            if (needsTranslation) {
+                aiTasks.push(
+                    aiService.translateToKorean(article.title).then(t => { if (t) { titleKo = t; hasTranslation = true; } }).catch(e => logger.warn(`Title translation failed: ${e.message}`)),
+                    aiService.translateToKorean(article.description).then(d => { if (d) { descriptionKo = d; hasTranslation = true; } }).catch(e => logger.warn(`Description translation failed: ${e.message}`))
+                );
+            }
+            await Promise.all(aiTasks);
+            const contentForSummary = descriptionKo || article.description;
+            const summaryTasks = [];
+            summaryTasks.push(
+                aiService.generateSummaryPoints(contentForSummary).then(points => { if (points) summaryPoints = points; }).catch(e => { logger.warn(`Summary points failed: ${e.message}`); summaryPoints = ['AI 요약 서비스를 일시적으로 사용할 수 없습니다.']; }),
+                aiService.generateDetailedSummary({ title: titleKo || article.title, content: contentForSummary }).then(summary => { if (summary) aiDetailedSummary = summary; }).catch(e => { logger.warn(`Detailed summary failed: ${e.message}`); aiDetailedSummary = '상세 요약을 생성할 수 없습니다.'; })
+            );
+            await Promise.all(summaryTasks);
+            return {
+                ...article,
+                titleKo,
+                descriptionKo,
+                originalTextKo: descriptionKo,
+                timeAgo: this.formatTimeAgo(article.publishedAt),
+                rating: await ratingService.calculateRating(article),
+                tags: await ratingService.generateTags(article),
+                id: Buffer.from(article.url).toString('base64').slice(0, 12),
+                aiDetailedSummary,
+                summaryPoints,
+                hasTranslation,
+                hasSummary: summaryPoints.length > 0 && !summaryPoints[0].includes('없습니다'),
+                section
+            };
+        }));
+    }
+
+    // 유틸 (Gemini 장점: 한국어 강화 + stripHtml)
+    stripHtml(html) {
+        if (!html) return '';
+        return html.replace(/<[^>]*>?/gm, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    }
+
+    formatTimeAgo(publishedAt) {
+        const now = new Date();
+        const published = new Date(publishedAt);
+        if (isNaN(published.getTime())) return '날짜 정보 없음';
+        const diffMs = now - published;
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffMins < 1) return '방금 전';
+        if (diffMins < 60) return `${diffMins}분 전`;
+        if (diffHours < 24) return `${diffHours}시간 전`;
+        return `${diffDays}일 전`;
+    }
+
 }
 
 module.exports = new NewsService();
