@@ -44,7 +44,7 @@ class NewsService {
         this.sources = {
             world: {
                 api: [
-                    { type: 'newsapi', params: { category: 'general', country: 'us,gb' } }
+                    { type: 'newsapi', params: { category: 'general', country: 'us' } }
                 ],
                 rss: [
                     { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC', lang: 'en' },
@@ -56,7 +56,7 @@ class NewsService {
             },
             korea: {
                 api: [
-                    { type: 'naver', params: { query: '뉴스', display: 20 } }
+                    { type: 'naver', params: { query: '속보 OR 긴급 OR 최신뉴스', display: 30 } }
                 ],
                 rss: [
                     { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC', lang: 'ko' },
@@ -68,7 +68,7 @@ class NewsService {
             },
             kr: { // korea와 동일
                 api: [
-                    { type: 'naver', params: { query: '뉴스', display: 20 } }
+                    { type: 'naver', params: { query: '속보 OR 긴급 OR 최신뉴스', display: 30 } }
                 ],
                 rss: [
                     { url: 'https://fs.jtbc.co.kr/RSS/newsflash.xml', name: 'JTBC', lang: 'ko' },
@@ -177,10 +177,12 @@ class NewsService {
     }
 
     // Fetch 함수 (Gemini 장점: v2 X API + normalize)
-    async fetchFromNewsAPI(params, language) {
+    async fetchFromNewsAPI(params, language = 'en') {
         if (!NEWS_API_KEY) return [];
         try {
-            const response = await this.newsApi.get('top-headlines', { params });
+            // pageSize를 50으로 증가하여 더 많은 기사 확보
+            const enhancedParams = { ...params, pageSize: 50 };
+            const response = await this.newsApi.get('top-headlines', { params: enhancedParams });
             return response.data.articles.map(item => this.normalizeArticle(item, 'NewsAPI', language));
         } catch (error) {
             logger.error(`NewsAPI fetch failed: ${error.message}`);
@@ -188,15 +190,162 @@ class NewsService {
         }
     }
 
-    async fetchFromNaverAPI(query, display = 20) {
+    async fetchFromNaverAPI(query, display = 30) {
         if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) return [];
+        
+        // 고급 키워드 세트 (첨부 파일 기반)
+        const KEYWORDS = [
+            // A. 속보·사건/사고
+            "속보","긴급","특보","브레이킹","사건","사고","중대사고","참사","경보",
+            // B. 보건·의학
+            "건강","의학","감염병","전염병","메르스","코로나","수족구","독감","백신","치료제","신약","임상",
+            // C. 정책·규제/국정
+            "국회","정부","대통령","총리","장관","법안","개정안","시행령","입법예고","규제","완화","총선","대선",
+            // D. 거시경제·시장
+            "금리","기준금리","환율","물가","인플레이션","디스인플레이션","경기","성장률","GDP","증시","코스피","코스닥",
+            // E. 금융리스크·기업
+            "부도","워크아웃","유동성","채권단","리콜","적자","실적","어닝","컨센서스","M&A","상장","상폐","공모",
+            // F. 산업·기술
+            "반도체","AI","클라우드","데이터센터","배터리","전기차","로봇","바이오","원전","스마트팩토리","양자","사이버보안",
+            // G. 외교·안보
+            "한미","한중","한일","북한","핵","미사일","제재","군사훈련","정전","휴전","국방","NATO",
+            // H. 사회·재난·기후
+            "지진","태풍","호우","폭염","한파","산불","홍수","가뭄","붕괴","정전","재난",
+            // I. 법원·사법
+            "대법원","헌재","검찰","수사","영장","구속","무죄","유죄","판결","소송","과징금",
+            // J. 교육·노동
+            "대입","수능","의대정원","교원","파업","노사","임단협","최저임금","근로시간",
+            // K. 부동산·인프라
+            "부동산","주택","분양","전매","청약","용적률","재건축","재개발","교통","GTX","SOC","철도",
+            // L. 에너지·환경
+            "유가","가스","전력","탄소중립","RE100","배출권","수소","암모니아","원유","셰일"
+        ];
+
+        // 출처 가중치
+        const SOURCE_WEIGHTS = {
+            "yna.co.kr": 5, "yonhapnews": 5, "reuters": 5, "bloomberg": 5, "wsj": 5, 
+            "apnews": 4, "afp": 4, "kbs": 4, "mbc": 4, "sbs": 4, "jtbc": 4, "ytn": 4,
+            "hankyung": 4, "mk.co.kr": 4, "edaily": 3, "sedaily": 3, "chosun": 3, 
+            "joongang": 3, "donga": 3
+        };
+
         try {
-            const response = await this.naverApi.get('news.json', { params: { query, display, sort: 'date' } });
-            return response.data.items.map(item => this.normalizeArticle(item, 'NaverAPI', 'ko'));
+            const allArticles = [];
+            const MAX_KEYWORDS = 20; // 성능을 위해 상위 20개 키워드만 사용
+            const selectedKeywords = KEYWORDS.slice(0, MAX_KEYWORDS);
+            
+            // 멀티 키워드로 병렬 수집
+            const promises = selectedKeywords.map(async (keyword) => {
+                try {
+                    const response = await this.naverApi.get('news.json', { 
+                        params: { 
+                            query: keyword, 
+                            display: Math.min(display, 100), // API 최대 100개
+                            sort: 'date' 
+                        } 
+                    });
+                    
+                    return response.data.items.map(item => ({
+                        ...this.normalizeArticle(item, 'NaverAPI', 'ko'),
+                        _keyword: keyword,
+                        _sourceScore: this.calculateSourceScore(item, SOURCE_WEIGHTS)
+                    }));
+                } catch (error) {
+                    logger.warn(`Naver API failed for keyword "${keyword}": ${error.message}`);
+                    return [];
+                }
+            });
+
+            const results = await Promise.allSettled(promises);
+            results.forEach(result => {
+                if (result.status === 'fulfilled') {
+                    allArticles.push(...result.value);
+                }
+            });
+
+            // 중복 제거 (URL + 제목 기반)
+            const uniqueArticles = this.deduplicateNaverArticles(allArticles);
+            
+            // 최신성 필터 (7일 이내로 완화)
+            const recentArticles = this.filterRecentArticles(uniqueArticles, 24 * 7);
+            
+            // 스코어 기반 정렬 및 상위 30개 선택
+            const topArticles = recentArticles
+                .sort((a, b) => (b._sourceScore || 0) - (a._sourceScore || 0))
+                .slice(0, 30);
+
+            logger.info(`Naver API: collected ${allArticles.length}, unique ${uniqueArticles.length}, recent ${recentArticles.length}, top ${topArticles.length}`);
+            return topArticles;
+
         } catch (error) {
             logger.error(`Naver API fetch failed: ${error.message}`);
             return [];
         }
+    }
+
+    calculateSourceScore(item, sourceWeights) {
+        const title = (item.title || "").replace(/<[^>]+>/g, "");
+        const link = item.originallink || item.link || "";
+        let score = 0;
+
+        // 출처별 가중치 적용
+        for (const [source, weight] of Object.entries(sourceWeights)) {
+            if (link.includes(source) || title.toLowerCase().includes(source)) {
+                score += weight;
+            }
+        }
+
+        // 제목 길이 보너스 (적절한 길이)
+        const titleLength = title.replace(/\s+/g, "").length;
+        if (titleLength >= 20 && titleLength <= 60) {
+            score += 1;
+        }
+
+        // 물음표 과다 사용 패널티
+        const questionMarks = (title.match(/\?/g) || []).length;
+        if (questionMarks >= 2) {
+            score -= 2;
+        }
+
+        return score;
+    }
+
+    deduplicateNaverArticles(articles) {
+        const seen = new Set();
+        const unique = [];
+        
+        for (const article of articles) {
+            const key = (article.url || "") + "||" + (article.title || "").replace(/<[^>]+>/g, "");
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(article);
+            }
+        }
+        
+        return unique;
+    }
+
+    filterRecentArticles(articles, maxHours) {
+        const cutoffTime = new Date(Date.now() - maxHours * 60 * 60 * 1000);
+        
+        return articles.filter(article => {
+            if (!article.publishedAt) return false;
+            
+            let pubDate;
+            if (typeof article.publishedAt === 'string') {
+                // "2024.10.29" 형식 처리
+                if (article.publishedAt.includes('.')) {
+                    const parts = article.publishedAt.split('.');
+                    pubDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                } else {
+                    pubDate = new Date(article.publishedAt);
+                }
+            } else {
+                pubDate = new Date(article.publishedAt);
+            }
+            
+            return pubDate > cutoffTime;
+        });
     }
 
     async fetchFromXAPI() {
