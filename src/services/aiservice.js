@@ -7,7 +7,7 @@ class AIService {
   }
 
   async translateToKorean(text, retries = 2) {
-    if (!text || text.trim().length === 0) return '';
+    if (!text || typeof text !== 'string' || text.trim().length === 0) return '';
     
     // 언어 감지
     const language = this.detectLanguage(text);
@@ -20,21 +20,21 @@ class AIService {
   }
 
   async summarizeArticle(text, retries = 2) {
-    if (!text || text.trim().length === 0) return '';
+    if (!text || typeof text !== 'string' || text.trim().length === 0) return '';
     
     // AI 요약 비활성화 - 원본 텍스트의 첫 100자 반환
     return text.substring(0, 100) + (text.length > 100 ? '...' : '');
   }
 
   async generateSummaryPoints(text, retries = 2) {
-    if (!text || text.trim().length === 0) return [];
+    if (!text || typeof text !== 'string' || text.trim().length === 0) return [];
     
     // AI 요약 포인트 비활성화 - 빈 배열 반환
     return [];
   }
 
   async generateDetailedSummary(text, retries = 2) {
-    if (!text || text.trim().length === 0) return '';
+    if (!text || typeof text !== 'string' || text.trim().length === 0) return '';
     
     // AI 상세 요약 비활성화 - 원본 텍스트의 첫 150자 반환
     return text.substring(0, 150) + (text.length > 150 ? '...' : '');

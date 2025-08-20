@@ -49,49 +49,15 @@ class NewsService {
         this.sources = {
             world: {
                 api: [
-                    { type: 'newsapi', params: { category: 'general', country: 'us' } },
-                    { type: 'gnews', params: { category: 'world', lang: 'en' } }
+                    // NewsAPI 제거 - RSS만 사용하여 안정성 확보
                 ],
                 rss: [
-                    // 영미권 메이저
-                    { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC', lang: 'en' },
-                    { url: 'https://rss.cnn.com/rss/edition_world.rss', name: 'CNN', lang: 'en' },
-                    { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', name: 'New York Times', lang: 'en' },
-                    { url: 'https://www.reuters.com/pf/feeds/world.xml', name: 'Reuters World', lang: 'en' },
-                    { url: 'https://abcnews.go.com/abcnews/internationalheadlines/rss', name: 'ABC News', lang: 'en' },
-                    { url: 'https://www.theguardian.com/world/rss', name: 'The Guardian', lang: 'en' },
-                    { url: 'https://feeds.washingtonpost.com/rss/world', name: 'Washington Post', lang: 'en' },
-                    { url: 'https://feeds.npr.org/1004/rss.xml', name: 'NPR World', lang: 'en' },
-                    
-                    // 통신사 및 글로벌
-                    { url: 'https://feeds.apnews.com/rss/apf-intlnews', name: 'Associated Press', lang: 'en' },
-                    { url: 'https://www.bloomberg.com/politics/feeds/site.xml', name: 'Bloomberg Politics', lang: 'en' },
-                    { url: 'https://feeds.content.dowjones.io/public/rss/RSSWorldNews', name: 'Wall Street Journal', lang: 'en' },
-                    { url: 'https://www.ft.com/world?format=rss', name: 'Financial Times', lang: 'en' },
-                    { url: 'https://www.economist.com/international/rss.xml', name: 'The Economist', lang: 'en' },
-                    
-                    // 국제 다언어
-                    { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera', lang: 'en' },
-                    { url: 'https://rss.dw.com/rdf/rss-en-world', name: 'Deutsche Welle', lang: 'en' },
-                    { url: 'https://www.france24.com/en/rss', name: 'France 24', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/euronews/en/world', name: 'Euronews', lang: 'en' },
-                    
-                    // 아시아-태평양
-                    { url: 'https://www.scmp.com/rss/4/feed', name: 'South China Morning Post', lang: 'en' },
-                    { url: 'https://www.japantimes.co.jp/feed/', name: 'Japan Times', lang: 'en' },
-                    { url: 'https://en.yna.co.kr/RSS/news.xml', name: 'Yonhap News', lang: 'en' },
-                    
-                    // 추가 신뢰할 수 있는 소스들
-                    { url: 'https://feeds.skynews.com/feeds/rss/world.xml', name: 'Sky News', lang: 'en' },
-                    { url: 'https://feeds.reuters.com/reuters/topNews', name: 'Reuters Top News', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/time/world', name: 'TIME World', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/newsweek/world', name: 'Newsweek World', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/usnews/world', name: 'US News World', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/cbsnews/world', name: 'CBS News World', lang: 'en' },
-                    { url: 'https://feeds.nbcnews.com/nbcnews/public/world', name: 'NBC News World', lang: 'en' },
-                    { url: 'https://feeds.foxnews.com/foxnews/world', name: 'Fox News World', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/independent/world', name: 'The Independent', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/thetimes/world', name: 'The Times', lang: 'en' }
+                    // 검증된 실제 작동하는 RSS 피드들만 사용
+                    { url: 'https://www.yna.co.kr/rss/news.xml', name: 'Yonhap News', lang: 'ko' },
+                    { url: 'https://feeds.bbci.co.uk/news/rss.xml', name: 'BBC News', lang: 'en' },
+                    { url: 'https://rss.cnn.com/rss/edition.rss', name: 'CNN', lang: 'en' },
+                    { url: 'https://feeds.feedburner.com/reuters/topNews', name: 'Reuters', lang: 'en' },
+                    { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera', lang: 'en' }
                 ]
             },
             korea: {
