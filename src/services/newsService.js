@@ -2,6 +2,7 @@ const Parser = require('rss-parser');
 const logger = require('../utils/logger');
 const { redis } = require('../config/database');
 const aiService = require('./aiservice');
+const ratingService = require('./ratingservice');
 const axios = require('axios'); // 추가: API 호출을 위한 라이브러리 (설치 필요 가정)
 
 // 환경 변수나 config에서 API 키 로드 (보안을 위해 코드에 하드코딩하지 않음)
@@ -102,28 +103,6 @@ class NewsService {
         }
     }
 
-    // 카테고리별 태그 생성 (기존 유지, 더 세밀하게 확장)
-    generateTags(title, description, source) {
-        const tags = [];
-        const content = (title + ' ' + description).toLowerCase();
-        
-        if (content.includes('ukraine') || content.includes('russia')) tags.push('국제정치');
-        if (content.includes('china') || content.includes('india')) tags.push('아시아');
-        if (content.includes('trump') || content.includes('biden')) tags.push('미국정치');
-        if (content.includes('climate') || content.includes('environment')) tags.push('환경');
-        if (content.includes('tech') || content.includes('ai') || content.includes('technology')) tags.push('기술');
-        if (content.includes('economy') || content.includes('market')) tags.push('경제');
-        if (content.includes('health') || content.includes('covid')) tags.push('건강');
-        if (content.includes('japan') || content.includes('tokyo')) tags.push('일본');
-        if (content.includes('korea') || content.includes('seoul')) tags.push('한국');
-        if (content.includes('entertainment') || content.includes('celebrity')) tags.push('버즈');
-        
-        // 소스별 기본 태그
-        tags.push(source); // 소스 이름을 태그로 추가
-        
-        return tags.length > 0 ? tags : ['일반'];
-    }
-
     // 기사 중요도 평점 계산 (기존 유지, API 소스에 가중치 추가)
     calculateRating(title, description, source) {
         let rating = 3;
@@ -152,7 +131,7 @@ class NewsService {
                 url: article.url,
                 urlToImage: article.urlToImage,
                 publishedAt: article.publishedAt,
-                source: article.source.name + ' (NewsAPI)',
+                source: article.source.name,
                 content: article.content || article.description
             }));
         } catch (error) {
@@ -257,7 +236,7 @@ class NewsService {
                     url: item.link,
                     urlToImage: item.enclosure?.url || null,
                     publishedAt: item.pubDate || new Date().toISOString(),
-                    source: source.name + ' (RSS)',
+                    source: source.name,
                     content: item.content || item.contentSnippet
                 }));
             } catch (error) {
@@ -309,7 +288,7 @@ class NewsService {
                 publishedAt,
                 timeAgo: this.formatTimeAgo(publishedAt),
                 rating: this.calculateRating(title, description, source),
-                tags: this.generateTags(title, description, source),
+                tags: await ratingService.generateTags(item),
                 id: Buffer.from(item.url).toString('base64').slice(0, 12),
                 aiDetailedSummary,
                 originalTextKo,
