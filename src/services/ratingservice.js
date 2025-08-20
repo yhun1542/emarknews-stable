@@ -30,6 +30,11 @@ class RatingService {
       'meme', 'influencer', 'youtube', 'tiktok', 'instagram',
       '바이럴', '트렌드', '연예인', '엔터테인먼트', '소셜미디어', '인플루언서'
     ];
+
+    this.sportsKeywords = [
+      'sports', 'olympic', 'football', 'soccer', 'basketball', 'baseball',
+      '스포츠', '올림픽', '축구', '농구', '야구'
+    ];
   }
 
   async calculateRating(article) {
@@ -43,26 +48,60 @@ class RatingService {
       const descriptionLower = (article.description || '').toLowerCase();
       const combinedText = titleLower + ' ' + descriptionLower;
 
-      // Urgency factor (+2)
+      // Urgency factor (+2 for urgent)
       if (this.containsKeywords(combinedText, this.urgentKeywords)) {
         score += 2;
       }
 
-      // Importance factor (+1)
+      // Importance factor (+1.5 for important)
       if (this.containsKeywords(combinedText, this.importantKeywords)) {
+        score += 1.5;
+      }
+
+      // Buzz factor (+1 for buzz)
+      if (this.containsKeywords(combinedText, this.buzzKeywords)) {
         score += 1;
       }
 
-      // Recency bonus (newer articles get higher scores)
-      const publishedDate = new Date(article.publishedAt);
+      // Lower weight for sports (-0.5)
+      if (this.containsKeywords(combinedText, this.sportsKeywords)) {
+        score -= 0.5;
+      }
+
+      // Weekday/Weekend adjustment
       const now = new Date();
+      const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+      if (isWeekday) {
+        // Weekday: boost business/important
+        if (this.containsKeywords(combinedText, this.businessKeywords) || 
+            this.containsKeywords(combinedText, this.importantKeywords)) {
+          score += 0.5;
+        }
+      } else {
+        // Weekend: boost buzz/entertainment
+        if (this.containsKeywords(combinedText, this.buzzKeywords)) {
+          score += 0.5;
+        }
+      }
+
+      // Recency bonus with emphasis on <48 hours, more for very recent, but capped
+      const publishedDate = new Date(article.publishedAt);
       const hoursAgo = (now - publishedDate) / (1000 * 60 * 60);
       
       if (hoursAgo < 1) {
-        score += 1; // Very recent
+        score += 1.2; // Very recent boost
       } else if (hoursAgo < 6) {
-        score += 0.5; // Recent
+        score += 0.8;
+      } else if (hoursAgo < 24) {
+        score += 0.6;
+      } else if (hoursAgo < 48) {
+        score += 0.4; // Within 48 hours
+      } else if (hoursAgo < 72) {
+        score += 0.2;
       }
+
+      // Cap recency bonus to prevent overshadowing important news
+      score = Math.min(score + 1.5, score); // Overall recency cap at +1.5 max
 
       // Source reliability factor
       const reliableSources = ['BBC', 'Reuters', 'AP News', 'CNN', '연합뉴스', 'KBS', 'MBC'];
@@ -78,7 +117,7 @@ class RatingService {
         score += 0.3; // Detailed description
       }
 
-      // Ensure score is within 1-5 range
+      // Ensure score is within 1-5 range, rounded to nearest 0.5
       score = Math.min(5, Math.max(1, Math.round(score * 2) / 2));
       
       return score;
@@ -110,6 +149,11 @@ class RatingService {
         tags.push('중요');
       }
 
+      // Buzz tags
+      if (this.containsKeywords(combinedText, this.buzzKeywords)) {
+        tags.push('바이럴');
+      }
+
       // Category tags
       if (this.containsKeywords(combinedText, this.techKeywords)) {
         tags.push('테크');
@@ -119,8 +163,9 @@ class RatingService {
         tags.push('경제');
       }
 
-      if (this.containsKeywords(combinedText, this.buzzKeywords)) {
-        tags.push('바이럴');
+      // Sports tag with lower priority (added last if needed)
+      if (this.containsKeywords(combinedText, this.sportsKeywords)) {
+        tags.push('스포츠');
       }
 
       // Recency tags
@@ -130,9 +175,11 @@ class RatingService {
       
       if (hoursAgo < 2) {
         tags.push('Hot');
+      } else if (hoursAgo < 48) {
+        tags.push('Recent');
       }
 
-      // Geographic tags
+      // Geographic tags (unchanged)
       if (this.containsKeywords(combinedText, ['korea', 'korean', '한국', '서울', 'seoul'])) {
         tags.push('한국');
       }
@@ -153,7 +200,7 @@ class RatingService {
         tags.push('유럽');
       }
 
-      // Special event tags
+      // Special event tags (unchanged)
       if (this.containsKeywords(combinedText, ['election', 'vote', '선거', '투표'])) {
         tags.push('선거');
       }
@@ -164,10 +211,6 @@ class RatingService {
 
       if (this.containsKeywords(combinedText, ['covid', 'pandemic', 'virus', '코로나', '바이러스'])) {
         tags.push('보건');
-      }
-
-      if (this.containsKeywords(combinedText, ['sports', 'olympic', '스포츠', '올림픽'])) {
-        tags.push('스포츠');
       }
 
       // Rating-based tags
@@ -181,8 +224,15 @@ class RatingService {
         tags.push('일반');
       }
 
-      // Remove duplicates and limit to 4 tags
-      return [...new Set(tags)].slice(0, 4);
+      // Remove duplicates and limit to 4 tags, prioritize urgent/important/buzz
+      const prioritizedTags = [];
+      ['긴급', '중요', '바이럴'].forEach(priorityTag => {
+        if (tags.includes(priorityTag)) {
+          prioritizedTags.push(priorityTag);
+          tags.splice(tags.indexOf(priorityTag), 1);
+        }
+      });
+      return [...new Set([...prioritizedTags, ...tags])].slice(0, 4);
 
     } catch (error) {
       logger.warn('Tag generation failed:', error.message);
@@ -196,7 +246,7 @@ class RatingService {
     );
   }
 
-  // Advanced rating calculation based on multiple factors
+  // Advanced rating calculation based on multiple factors (optimized for speed)
   async calculateAdvancedRating(article) {
     try {
       let totalScore = 0;
@@ -217,15 +267,30 @@ class RatingService {
       totalScore += sourceScore;
       factorCount++;
 
-      // 4. Recency Score (0-1)
+      // 4. Recency Score (0-1, with 48h emphasis)
       const recencyScore = this.calculateRecency(article);
-      totalScore += recencyScore;
+      totalScore += recencyScore * 0.8; // Reduce recency weight to 80% to balance with importance
       factorCount++;
 
-      // 5. Engagement Potential Score (0-1)
+      // 5. Engagement Potential Score (0-1, adjusted for sports low weight)
       const engagementScore = this.calculateEngagementPotential(article);
       totalScore += engagementScore;
       factorCount++;
+
+      // Weekday/Weekend factor integrated here
+      const now = new Date();
+      const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+      const text = ((article.title || '') + ' ' + (article.description || '')).toLowerCase();
+      if (isWeekday && (this.containsKeywords(text, this.businessKeywords) || this.containsKeywords(text, this.importantKeywords))) {
+        totalScore += 0.2;
+      } else if (!isWeekday && this.containsKeywords(text, this.buzzKeywords)) {
+        totalScore += 0.2;
+      }
+
+      // Penalty for sports
+      if (this.containsKeywords(text, this.sportsKeywords)) {
+        totalScore -= 0.1;
+      }
 
       // Calculate average and convert to 1-5 scale
       const averageScore = totalScore / factorCount;
@@ -322,10 +387,11 @@ class RatingService {
       const hoursAgo = (now - publishedDate) / (1000 * 60 * 60);
 
       if (hoursAgo < 1) return 1.0;      // Very fresh
-      if (hoursAgo < 6) return 0.8;      // Fresh
-      if (hoursAgo < 24) return 0.6;     // Recent
-      if (hoursAgo < 72) return 0.4;     // Somewhat old
-      return 0.2;                        // Old
+      if (hoursAgo < 6) return 0.9;      // Extra boost for <6h
+      if (hoursAgo < 24) return 0.7;
+      if (hoursAgo < 48) return 0.5;     // Emphasis on <48h
+      if (hoursAgo < 72) return 0.3;
+      return 0.1;                        // Old, low score
 
     } catch (error) {
       return 0.3;
@@ -355,6 +421,11 @@ class RatingService {
       score += 0.3;
     }
 
+    // Penalty for sports
+    if (this.containsKeywords(text, this.sportsKeywords)) {
+      score -= 0.2;
+    }
+
     return Math.min(1, score);
   }
 
@@ -376,31 +447,33 @@ class RatingService {
       .map(([topic, count]) => ({ topic, count }));
   }
 
-  // Get importance score for article prioritization
+  // Get importance score for article prioritization (balanced recency)
   getImportanceScore(article) {
     const rating = this.calculateRating(article);
     const tags = this.generateTags(article);
     const recency = this.calculateRecency(article);
     
-    let importance = rating * 0.4; // Rating weight: 40%
+    let importance = rating * 0.5; // Increase rating weight to 50% for balance
     
-    // Tag-based importance
+    // Tag-based importance (urgent/important first)
     if (tags.includes('긴급')) importance += 2;
     if (tags.includes('중요')) importance += 1.5;
-    if (tags.includes('Hot')) importance += 1;
+    if (tags.includes('바이럴')) importance += 1;
+    if (tags.includes('Hot')) importance += 0.5;
+    if (tags.includes('스포츠')) importance -= 0.5; // Lower for sports
     
-    // Recency weight: 30%
-    importance += recency * 1.5;
+    // Recency weight: 30%, capped
+    importance += Math.min(recency * 1.2, 1.5);
     
     return Math.min(10, importance);
   }
 
-  // Batch process articles for performance
+  // Batch process articles for performance (smaller batches for faster loading)
   async batchProcessArticles(articles) {
     const processed = [];
     
-    for (let i = 0; i < articles.length; i += 10) {
-      const batch = articles.slice(i, i + 10);
+    for (let i = 0; i < articles.length; i += 5) { // Smaller batch size (5) for quicker response
+      const batch = articles.slice(i, i + 5);
       
       const batchPromises = batch.map(async (article) => ({
         ...article,
@@ -412,9 +485,9 @@ class RatingService {
       const batchResults = await Promise.all(batchPromises);
       processed.push(...batchResults);
       
-      // Small delay between batches to avoid overwhelming the system
-      if (i + 10 < articles.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Minimal delay only if needed
+      if (i + 5 < articles.length) {
+        await new Promise(resolve => setTimeout(resolve, 50)); // Reduced delay for speed
       }
     }
     
@@ -429,7 +502,8 @@ class RatingService {
                      this.importantKeywords.length + 
                      this.techKeywords.length + 
                      this.businessKeywords.length + 
-                     this.buzzKeywords.length
+                     this.buzzKeywords.length +
+                     this.sportsKeywords.length
     };
   }
 }

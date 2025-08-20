@@ -2,6 +2,7 @@ const Parser = require('rss-parser');
 const logger = require('../utils/logger');
 const { redis } = require('../config/database');
 const aiService = require('./aiservice');
+const ratingService = require('./ratingservice');
 
 class NewsService {
     constructor() {
@@ -59,43 +60,26 @@ class NewsService {
         }
     }
 
-    // 카테고리별 태그 생성
-    generateTags(title, description, source) {
-        const tags = [];
-        const content = (title + ' ' + description).toLowerCase();
-        
-        // 키워드 기반 태그 생성
-        if (content.includes('ukraine') || content.includes('russia')) tags.push('국제정치');
-        if (content.includes('china') || content.includes('india')) tags.push('아시아');
-        if (content.includes('trump') || content.includes('biden')) tags.push('미국정치');
-        if (content.includes('climate') || content.includes('environment')) tags.push('환경');
-        if (content.includes('tech') || content.includes('ai') || content.includes('technology')) tags.push('기술');
-        if (content.includes('economy') || content.includes('market')) tags.push('경제');
-        if (content.includes('health') || content.includes('covid')) tags.push('건강');
-        
-        // 소스별 기본 태그
-        if (source === 'BBC') tags.push('BBC');
-        if (source === 'CNN') tags.push('CNN');
-        if (source === 'JTBC') tags.push('국내');
-        if (source === 'TechCrunch') tags.push('테크');
-        
-        return tags.length > 0 ? tags : ['일반'];
+    // 카테고리별 태그 생성 (ratingService 사용)
+    async generateTags(title, description, source, publishedAt) {
+        const article = {
+            title,
+            description,
+            source,
+            publishedAt
+        };
+        return await ratingService.generateTags(article);
     }
 
-    // 기사 중요도 평점 계산
-    calculateRating(title, description, source) {
-        let rating = 3; // 기본 평점
-        const content = (title + ' ' + description).toLowerCase();
-        
-        // 중요 키워드가 있으면 평점 상승
-        if (content.includes('breaking') || content.includes('urgent')) rating += 1;
-        if (content.includes('exclusive') || content.includes('special')) rating += 0.5;
-        if (content.includes('crisis') || content.includes('emergency')) rating += 0.5;
-        
-        // 소스별 가중치
-        if (source === 'BBC' || source === 'CNN') rating += 0.3;
-        
-        return Math.min(5, Math.max(1, Math.round(rating * 10) / 10));
+    // 기사 중요도 평점 계산 (ratingService 사용)
+    async calculateRating(title, description, source, publishedAt) {
+        const article = {
+            title,
+            description,
+            source,
+            publishedAt
+        };
+        return await ratingService.calculateRating(article);
     }
 
     async getNews(section = 'world', useCache = true) {
@@ -209,8 +193,8 @@ class NewsService {
                         source: source.name,
                         publishedAt,
                         timeAgo: this.formatTimeAgo(publishedAt),
-                        rating: this.calculateRating(title, description, source.name),
-                        tags: this.generateTags(title, description, source.name),
+                        rating: await this.calculateRating(title, description, source.name, publishedAt),
+                        tags: await this.generateTags(title, description, source.name, publishedAt),
                         id: Buffer.from(item.link).toString('base64').slice(0, 12),
                         // 실제 AI 기능
                         aiDetailedSummary,
