@@ -951,19 +951,43 @@
             }
 
             setupNavigation() {
-                document.querySelectorAll('.nav-item').forEach(btn => {
+                console.log('🔧 setupNavigation 시작');
+                
+                // 모든 네비게이션 버튼에 이벤트 리스너 추가
+                const navButtons = document.querySelectorAll('.nav-item');
+                console.log('📊 네비게이션 버튼 개수:', navButtons.length);
+                
+                navButtons.forEach((btn, index) => {
+                    const section = btn.dataset.section;
+                    console.log(`🔗 버튼 ${index + 1}: ${btn.textContent} (section: ${section})`);
+                    
+                    // 기존 이벤트 리스너 제거
+                    btn.removeEventListener('click', this.handleNavClick);
+                    
+                    // 새 이벤트 리스너 추가
                     btn.addEventListener('click', (e) => {
+                        console.log(`🖱️ 클릭됨: ${e.target.textContent} (section: ${e.target.dataset.section})`);
+                        
+                        // 모든 버튼에서 active 클래스 제거
                         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+                        
+                        // 클릭된 버튼에 active 클래스 추가
                         e.target.classList.add('active');
                         
-                        // 섹션 변경시 필터 초기화
+                        // 필터 초기화
                         this.currentFilter = 'all';
                         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                        document.querySelector('.filter-btn[data-filter="all"]').classList.add('active');
+                        const allFilterBtn = document.querySelector('.filter-btn[data-filter="all"]');
+                        if (allFilterBtn) allFilterBtn.classList.add('active');
                         
-                        this.loadNews(e.target.dataset.section, 'all');
+                        // 뉴스 로딩
+                        const targetSection = e.target.dataset.section;
+                        console.log(`📰 뉴스 로딩 시작: ${targetSection}`);
+                        this.loadNews(targetSection, 'all');
                     });
                 });
+                
+                console.log('✅ setupNavigation 완료');
             }
 
             setupFilters() {
