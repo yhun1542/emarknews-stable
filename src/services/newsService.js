@@ -134,32 +134,113 @@ class NewsService {
             },
             tech: {
                 api: [
-                    { type: 'newsapi', params: { category: 'technology' } }
+                    { type: 'newsapi', params: { category: 'technology' } },
+                    { type: 'gnews', params: { category: 'technology', lang: 'en' } },
+                    { type: 'gnews', params: { category: 'technology', lang: 'ja' } }
                 ],
                 rss: [
+                    // 글로벌 테크 언론사
                     { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch', lang: 'en' },
+                    { url: 'https://www.theverge.com/rss/index.xml', name: 'The Verge', lang: 'en' },
+                    { url: 'https://www.wired.com/feed/rss', name: 'Wired', lang: 'en' },
+                    { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica', lang: 'en' },
                     { url: 'https://www.androidauthority.com/feed/', name: 'Android Authority', lang: 'en' },
                     { url: 'https://9to5mac.com/feed/', name: '9to5Mac', lang: 'en' },
-                    { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica', lang: 'en' },
-                    { url: 'https://www.wired.com/feed/rss', name: 'Wired', lang: 'en' } // Gemini 추가
-                ]
+                    { url: 'https://9to5google.com/feed/', name: '9to5Google', lang: 'en' },
+                    // 비즈니스 테크 언론사
+                    { url: 'https://www.reuters.com/rssFeed/technologyNews', name: 'Reuters Tech', lang: 'en' },
+                    { url: 'https://feeds.bloomberg.com/technology/news.rss', name: 'Bloomberg Tech', lang: 'en' },
+                    { url: 'https://www.ft.com/rss/companies/technology', name: 'FT Technology', lang: 'en' },
+                    // 아시아 테크
+                    { url: 'https://www.nikkei.com/rss/technology.xml', name: 'Nikkei Tech', lang: 'ja' }
+                ],
+                // 테크 섹션 특화 설정
+                keywords: [
+                    "AI OR artificial intelligence OR genAI OR LLM",
+                    "semiconductor OR chip OR foundry OR TSMC OR Samsung",
+                    "data center OR cloud OR hyperscaler OR GPU OR accelerator",
+                    "NVIDIA OR AMD OR Intel OR Apple silicon",
+                    "cybersecurity OR data breach OR ransomware OR zero-day",
+                    "quantum computing OR photonics",
+                    "regulation tech OR antitrust tech OR export controls"
+                ],
+                sourceWeights: {
+                    "reuters.com": 5, "bloomberg.com": 5, "ft.com": 5, "wsj.com": 5,
+                    "theverge.com": 4, "techcrunch.com": 4, "wired.com": 4, "arstechnica.com": 4,
+                    "androidauthority.com": 3, "9to5mac.com": 3, "9to5google.com": 3,
+                    "nikkei.com": 4, "scmp.com": 3, "yna.co.kr": 3
+                }
             },
             japan: {
                 api: [
-                    { type: 'newsapi', params: { country: 'jp', category: 'general' } }
+                    { type: 'newsapi', params: { country: 'jp', category: 'general' } },
+                    { type: 'gnews', params: { country: 'jp', category: 'nation', lang: 'ja' } },
+                    { type: 'gnews', params: { country: 'jp', category: 'general', lang: 'ja' } }
                 ],
                 rss: [
-                    { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK', lang: 'ja' }
-                ]
+                    // 일본 주요 언론사
+                    { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK', lang: 'ja' },
+                    { url: 'https://www.asahi.com/rss/asahi/newsheadlines.rdf', name: 'Asahi Shimbun', lang: 'ja' },
+                    { url: 'https://www.yomiuri.co.jp/rss/news.xml', name: 'Yomiuri Shimbun', lang: 'ja' },
+                    { url: 'https://mainichi.jp/rss/etc/mainichi-flash.rss', name: 'Mainichi Shimbun', lang: 'ja' },
+                    { url: 'https://www.nikkei.com/news/latest/feed/', name: 'Nikkei', lang: 'ja' },
+                    { url: 'https://www.japantimes.co.jp/feed/', name: 'Japan Times', lang: 'en' },
+                    // 국제 언론사 일본 관련
+                    { url: 'https://www.reuters.com/rssFeed/worldNews', name: 'Reuters World', lang: 'en' },
+                    { url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml', name: 'BBC Asia', lang: 'en' }
+                ],
+                // 일본 섹션 특화 설정
+                keywords: [
+                    "Japan AND (Diet OR parliament OR cabinet OR prime minister)",
+                    "Japan AND (election OR poll OR reshuffle)",
+                    "Nikkei OR BOJ OR Bank of Japan OR inflation OR yen",
+                    "semiconductor Japan OR TSMC Kumamoto OR Rapidus",
+                    "automotive Japan OR Toyota OR Honda OR EV OR battery",
+                    "earthquake Japan OR typhoon Japan OR heatwave Japan OR Fukushima",
+                    "North Korea OR missile Japan OR defense Japan",
+                    "earnings Japan OR guidance Japan OR recall Japan"
+                ],
+                sourceWeights: {
+                    "nhk.or.jp": 5, "nikkei.com": 5, "asahi.com": 4, "yomiuri.co.jp": 4, 
+                    "mainichi.jp": 4, "sankei.com": 3, "japantimes.co.jp": 4,
+                    "reuters.com": 5, "bloomberg.com": 5, "bbc.com": 4
+                }
             },
             business: {
                 api: [
-                    { type: 'newsapi', params: { category: 'business' } }
+                    { type: 'newsapi', params: { category: 'business' } },
+                    { type: 'gnews', params: { category: 'business', lang: 'en' } },
+                    { type: 'gnews', params: { category: 'business', lang: 'ko' } }
                 ],
                 rss: [
+                    // 글로벌 금융 언론사
                     { url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg Markets', lang: 'en' },
-                    { url: 'https://feeds.feedburner.com/wsj/xml/rss/3_7085.xml', name: 'WSJ Business', lang: 'en' }
-                ]
+                    { url: 'https://feeds.feedburner.com/wsj/xml/rss/3_7085.xml', name: 'WSJ Business', lang: 'en' },
+                    { url: 'https://www.ft.com/rss/companies', name: 'Financial Times', lang: 'en' },
+                    { url: 'https://www.economist.com/rss/business_rss.xml', name: 'The Economist', lang: 'en' },
+                    { url: 'https://www.reuters.com/rssFeed/businessNews', name: 'Reuters Business', lang: 'en' },
+                    { url: 'https://feeds.cnbc.com/cnbc/business', name: 'CNBC Business', lang: 'en' },
+                    // 한국 비즈니스 언론사
+                    { url: 'https://rss.hankyung.com/news/economy.xml', name: 'Hankyung Economy', lang: 'ko' },
+                    { url: 'https://rss.mk.co.kr/news.xml', name: 'Maeil Business', lang: 'ko' },
+                    { url: 'https://www.yna.co.kr/rss/economy.xml', name: 'Yonhap Economy', lang: 'ko' }
+                ],
+                // 비즈니스 섹션 특화 설정
+                keywords: [
+                    "earnings OR guidance OR outlook OR revenue OR profit",
+                    "merger OR acquisition OR M&A OR takeover",
+                    "Federal Reserve OR ECB OR BOE OR interest rates OR inflation",
+                    "oil prices OR OPEC OR demand",
+                    "stock market OR selloff OR rally OR S&P OR Nasdaq",
+                    "FX OR currency crisis OR devaluation",
+                    "antitrust OR lawsuit OR settlement OR fine",
+                    "IPO OR listing OR delisting OR downgrade OR upgrade"
+                ],
+                sourceWeights: {
+                    "reuters.com": 5, "bloomberg.com": 5, "ft.com": 5, "wsj.com": 5, "economist.com": 5,
+                    "cnbc.com": 4, "marketwatch.com": 3, "nytimes.com": 4, "theguardian.com": 3,
+                    "nikkei.com": 4, "yna.co.kr": 3, "hankyung.com": 4, "mk.co.kr": 3
+                }
             },
             buzz: {
                 api: [
@@ -196,9 +277,9 @@ class NewsService {
         // API promises (Grok + Gemini 쿼리 다양화)
         sources.api.forEach(apiSource => {
             if (apiSource.type === 'newsapi') {
-                fetchPromises.push(this.fetchFromNewsAPI(apiSource.params, 'en'));
+                fetchPromises.push(this.fetchFromNewsAPI(apiSource.params, 'en', sources.keywords, sources.sourceWeights));
             } else if (apiSource.type === 'gnews') {
-                fetchPromises.push(this.fetchFromGNewsAPI(apiSource.params));
+                fetchPromises.push(this.fetchFromGNewsAPI(apiSource.params, sources.keywords, sources.sourceWeights));
             } else if (apiSource.type === 'naver') {
                 fetchPromises.push(this.fetchFromNaverAPI(apiSource.params.query, apiSource.params.display));
             } else if (apiSource.type === 'twitter') {
@@ -233,7 +314,7 @@ class NewsService {
     }
 
     // Fetch 함수 (Gemini 장점: v2 X API + normalize)
-    async fetchFromNewsAPI(params, language = 'en') {
+    async fetchFromNewsAPI(params, language = 'en', sectionKeywords = null, sectionWeights = null) {
         if (!NEWS_API_KEY) return [];
         
         // 고급 세계뉴스 수집 시스템 (첨부 파일 기반)
@@ -252,7 +333,8 @@ class NewsService {
         
         const DOMAIN_BLACKLIST = ["news.google.com","news.yahoo.com","flipboard.com"];
         
-        const HOT_QUERIES = [
+        // 섹션별 키워드가 있으면 사용, 없으면 기본 키워드 사용
+        const HOT_QUERIES = sectionKeywords || [
             // 지정학/분쟁/선거
             "war OR conflict","Ukraine OR Gaza OR Middle East","election OR parliament",
             "sanctions OR ceasefire","NATO OR UN Security Council",
@@ -270,7 +352,8 @@ class NewsService {
             "Korea OR Japan OR China summit","North Korea OR missile"
         ];
 
-        const SOURCE_WEIGHTS = {
+        // 섹션별 가중치가 있으면 사용, 없으면 기본 가중치 사용
+        const SOURCE_WEIGHTS = sectionWeights || {
             "reuters.com":5,"apnews.com":5,"afp.com":4,"bloomberg.com":5,"wsj.com":5,"ft.com":5,"economist.com":5,
             "bbc.com":4,"cnn.com":3,"nytimes.com":5,"washingtonpost.com":4,"theguardian.com":4,
             "aljazeera.com":4,"dw.com":3,"spiegel.de":3,"lemonde.fr":4,"elpais.com":3,"scmp.com":4,
@@ -364,7 +447,7 @@ class NewsService {
         }
     }
 
-    async fetchFromGNewsAPI(params) {
+    async fetchFromGNewsAPI(params, sectionKeywords = null, sectionWeights = null) {
         if (!GNEWS_API_KEY) return [];
         
         try {
@@ -372,8 +455,8 @@ class NewsService {
             const HOURS_WINDOW = 12;
             const allArticles = [];
             
-            // 고품질 핫토픽 키워드 (첨부 파일 기반)
-            const HOT_QUERIES = [
+            // 섹션별 키워드가 있으면 사용, 없으면 기본 키워드 사용
+            const HOT_QUERIES = sectionKeywords || [
                 "war OR conflict","Ukraine OR Gaza OR Middle East","election OR parliament",
                 "sanctions OR ceasefire","NATO OR UN Security Council",
                 "Federal Reserve OR interest rates OR inflation","oil prices OR OPEC","stock market OR selloff",
