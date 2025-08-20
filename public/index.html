@@ -708,11 +708,11 @@
                 }
             }
 
-            async loadNews(section = null) {
+            async loadNews(section = null, loadMore = false) {
                 try {
                     if (section === null) section = this.currentSection;
                     
-                    console.log('Loading news for section:', section);
+                    console.log('Loading news for section:', section, 'loadMore:', loadMore);
                     this.currentSection = section;
                     
                     if (section === 'youtube') {
@@ -723,12 +723,14 @@
                         this.hideYouTubeSection();
                     }
                     
-                    document.getElementById('loading').style.display = 'block';
-                    document.getElementById('news-grid').style.display = 'none';
+                    if (!loadMore) {
+                        document.getElementById('loading').style.display = 'block';
+                        document.getElementById('news-grid').style.display = 'none';
+                    }
                     
                     // 실제 API에서 데이터 가져오기
                     let articles;
-                    if (this.allArticles.has(section)) {
+                    if (this.allArticles.has(section) && !loadMore) {
                         articles = this.allArticles.get(section);
                     } else {
                         // 실제 API 호출
@@ -742,9 +744,23 @@
                         };
                         
                         const apiSection = sectionMap[section] || section;
-                        console.log(`🌐 API 호출: /api/news/${apiSection}`);
                         
-                        const response = await fetch(`/api/news/${apiSection}`);
+                        // 단계별 로딩: 세계섹션의 경우 50개까지 점진적 로딩
+                        let limit = 20; // 기본값
+                        if (section === 'world') {
+                            const currentArticles = this.allArticles.get(section) || [];
+                            if (currentArticles.length === 0) {
+                                limit = 15; // 첫 로딩
+                            } else if (currentArticles.length < 30) {
+                                limit = 30; // 두 번째 로딩
+                            } else if (currentArticles.length < 50) {
+                                limit = 50; // 최종 로딩
+                            }
+                        }
+                        
+                        console.log(`🌐 API 호출: /api/news/${apiSection}?limit=${limit}`);
+                        
+                        const response = await fetch(`/api/news/${apiSection}?limit=${limit}`);
                         if (!response.ok) {
                             throw new Error(`API Error: ${response.status}`);
                         }
@@ -816,7 +832,6 @@
                             
                             <div class="news-content">
                                 <div class="news-title">
-                                    ${this.currentSection === 'world' && article.title ? `<div class="news-title-original">${article.title}</div>` : ''}
                                     <div class="news-title-translated">${displayTitle}</div>
                                 </div>
                                 
@@ -1027,6 +1042,18 @@
             // 네비게이션 설정
             newsApp.setupNavigation();
             console.log('✅ 네비게이션 설정 완료');
+            
+            // 스크롤 이벤트 리스너 추가 (세계섹션 단계별 로딩)
+            window.addEventListener('scroll', () => {
+                if (newsApp.currentSection === 'world' && 
+                    (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+                    const currentArticles = newsApp.allArticles.get('world') || [];
+                    if (currentArticles.length < 50) {
+                        console.log('🔄 세계섹션 추가 로딩...');
+                        newsApp.loadNews('world', true);
+                    }
+                }
+            });
             
             // 초기 뉴스 로딩
             console.log('🔄 초기 뉴스 로딩 시작...');
