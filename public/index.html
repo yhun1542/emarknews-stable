@@ -508,9 +508,87 @@
                 padding: 0 0.5rem;
             }
 
+            /* 모바일 뉴스 카드 스타일 - 한 번에 하나씩 */
             .news-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 2rem;
+                scroll-snap-type: y mandatory;
+                overflow-y: auto;
+                height: calc(100vh - 200px);
+            }
+
+            .news-item {
+                scroll-snap-align: start;
+                min-height: calc(100vh - 250px);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                margin: 1rem 0;
+                padding: 1.5rem;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 20px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+
+            .news-header {
+                margin-bottom: 1rem;
+            }
+
+            .news-source {
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: #667eea;
+                background: rgba(102, 126, 234, 0.1);
+                padding: 0.4rem 0.8rem;
+                border-radius: 15px;
+                display: inline-block;
+                margin-bottom: 0.5rem;
+            }
+
+            .news-title {
+                font-size: 1.3rem;
+                font-weight: bold;
+                line-height: 1.4;
+                color: #333;
+                margin-bottom: 1rem;
+            }
+
+            .news-summary {
+                font-size: 1rem;
+                line-height: 1.6;
+                color: #555;
+                margin-bottom: 1rem;
+            }
+
+            .news-tags {
+                margin-bottom: 1rem;
+            }
+
+            .news-tag {
+                font-size: 0.8rem;
+                padding: 0.3rem 0.6rem;
+                margin: 0.2rem 0.3rem 0.2rem 0;
+                border-radius: 12px;
+                display: inline-block;
+            }
+
+            .rating-badge {
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: #ff6b35;
+                background: rgba(255, 107, 53, 0.1);
+                padding: 0.4rem 0.8rem;
+                border-radius: 15px;
+                display: inline-block;
+            }
+
+            .time-ago {
+                font-size: 0.8rem;
+                color: #888;
+                margin-left: 1rem;
             }
 
             .news-actions {
@@ -527,185 +605,25 @@
                 gap: 0.3rem;
             }
 
-            /* 카드뉴스 스타일 (모바일 전용) */
-            .card-news-mode .main {
-                padding: 0;
+            /* 스크롤 힌트 */
+            .mobile-scroll-hint {
                 position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 100;
-                background: #000;
-            }
-
-            .card-news-mode .header,
-            .card-news-mode .nav {
-                display: none;
-            }
-
-            .card-news-container {
-                position: relative;
-                width: 100%;
-                height: 100vh;
-                overflow: hidden;
-                background: #000;
-            }
-
-            .card-news-item {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100vh;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 2rem;
-                box-sizing: border-box;
-                transform: translateY(100vh);
-                transition: transform 0.3s ease;
-                color: white;
-            }
-
-            .card-news-item.active {
-                transform: translateY(0);
-            }
-
-            .card-news-item.prev {
-                transform: translateY(-100vh);
-            }
-
-            .card-news-header {
-                position: absolute;
-                top: 2rem;
-                left: 2rem;
-                right: 2rem;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                z-index: 10;
-            }
-
-            .card-news-close {
-                background: rgba(255, 255, 255, 0.2);
-                border: none;
-                color: white;
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                font-size: 1.2rem;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .card-news-progress {
-                flex: 1;
-                margin: 0 1rem;
-                height: 3px;
-                background: rgba(255, 255, 255, 0.3);
-                border-radius: 2px;
-                overflow: hidden;
-            }
-
-            .card-news-progress-bar {
-                height: 100%;
-                background: white;
-                border-radius: 2px;
-                transition: width 0.3s ease;
-            }
-
-            .card-news-content {
-                text-align: center;
-                max-width: 100%;
-                padding: 0 1rem;
-            }
-
-            .card-news-source {
-                font-size: 0.9rem;
-                opacity: 0.8;
-                margin-bottom: 1rem;
-                background: rgba(255, 255, 255, 0.2);
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                display: inline-block;
-            }
-
-            .card-news-title {
-                font-size: 1.4rem;
-                font-weight: bold;
-                line-height: 1.4;
-                margin-bottom: 1.5rem;
-                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-            }
-
-            .card-news-summary {
-                font-size: 1rem;
-                line-height: 1.6;
-                opacity: 0.9;
-                margin-bottom: 2rem;
-            }
-
-            .card-news-meta {
-                position: absolute;
                 bottom: 2rem;
-                left: 2rem;
-                right: 2rem;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-size: 0.8rem;
-                opacity: 0.8;
-            }
-
-            .card-news-rating {
-                background: rgba(255, 255, 255, 0.2);
-                padding: 0.3rem 0.8rem;
-                border-radius: 15px;
-            }
-
-            .card-news-instructions {
-                position: absolute;
-                bottom: 6rem;
                 left: 50%;
                 transform: translateX(-50%);
-                text-align: center;
-                font-size: 0.7rem;
-                opacity: 0.6;
-                animation: fadeInOut 3s infinite;
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                z-index: 1000;
+                animation: fadeInOut 3s ease-in-out infinite;
+                pointer-events: none;
             }
 
             @keyframes fadeInOut {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 0.3; }
-            }
-
-            .card-news-swipe-hint {
-                position: absolute;
-                left: 50%;
-                transform: translateX(-50%);
-                color: rgba(255, 255, 255, 0.5);
-                font-size: 2rem;
-                animation: bounce 2s infinite;
-            }
-
-            .card-news-swipe-hint.up {
-                top: 20%;
-            }
-
-            .card-news-swipe-hint.down {
-                bottom: 20%;
-                transform: translateX(-50%) rotate(180deg);
-            }
-
-            @keyframes bounce {
-                0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
-                40% { transform: translateX(-50%) translateY(-10px); }
-                60% { transform: translateX(-50%) translateY(-5px); }
+                0%, 100% { opacity: 0; }
+                50% { opacity: 1; }
             }
         }
 
@@ -755,11 +673,6 @@
         <div id="loading">AI가 뉴스를 분석중입니다...</div>
         <div id="news-grid" class="news-grid"></div>
         
-        <!-- 카드뉴스 컨테이너 (모바일 전용) -->
-        <div id="card-news-container" class="card-news-container" style="display: none;">
-            <!-- 카드뉴스 아이템들이 동적으로 생성됩니다 -->
-        </div>
-        
         <!-- 더보기 버튼 -->
         <div id="load-more-container" style="display: none; text-align: center; margin: 2rem 0;">
             <button id="load-more-btn" style="
@@ -778,9 +691,9 @@
             </button>
         </div>
         
-        <div class="youtube-section" id="youtube-section" style="display: none;">
-            <h3>📺 주요 언론사 영상 뉴스</h3>
-            <div class="youtube-grid" id="youtube-grid"></div>
+        <!-- 모바일 스크롤 힌트 -->
+        <div id="mobile-scroll-hint" class="mobile-scroll-hint" style="display: none;">
+            위/아래로 스크롤하여 뉴스 탐색
         </div>
     </main>
     
@@ -806,25 +719,26 @@
                 this.articlesPerPage = 21; // 페이지당 기사 수
                 this.isLoadingMore = false; // 추가 로딩 중인지 확인
                 
-                // 카드뉴스 시스템 (모바일 전용)
-                this.isCardNewsMode = false;
-                this.cardNewsArticles = [];
-                this.currentCardIndex = 0;
-                this.cardNewsContainer = null;
-                this.touchStartY = 0;
-                this.touchEndY = 0;
-                this.isSwipeEnabled = true;
+                // 모바일 스크롤 시스템
+                this.isMobileView = false;
+                this.mobileArticlesPerView = 1; // 모바일에서 한 번에 표시할 기사 수
                 
                 this.init();
             }
 
             init() {
+                this.checkMobileView();
                 this.loadCurrency();
                 this.loadNews();
                 this.setupNavigation();
                 this.setupLoadMore(); // 더보기 버튼 설정
-                this.setupCardNews(); // 카드뉴스 설정
+                this.setupMobileScrollHint(); // 모바일 스크롤 힌트 설정
                 this.startAutoUpdate();
+                
+                // 윈도우 리사이즈 시 모바일 뷰 체크
+                window.addEventListener('resize', () => {
+                    this.checkMobileView();
+                });
             }
 
             async loadCurrency() {
@@ -1027,13 +941,15 @@
                 // 표시할 기사 범위 계산
                 let articlesToShow;
                 if (loadMore) {
-                    // 더보기: 기존 + 21개 추가
-                    const newDisplayed = Math.min(currentDisplayed + this.articlesPerPage, articles.length);
+                    // 더보기: 모바일에서는 1개씩, 데스크톱에서는 21개씩 추가
+                    const additionalArticles = this.isMobileView ? this.mobileArticlesPerView : this.articlesPerPage;
+                    const newDisplayed = Math.min(currentDisplayed + additionalArticles, articles.length);
                     articlesToShow = articles.slice(0, newDisplayed);
                     this.displayedArticles.set(this.currentSection, newDisplayed);
                 } else {
-                    // 첫 로딩: 21개만
-                    const initialDisplayed = Math.min(this.articlesPerPage, articles.length);
+                    // 첫 로딩: 모바일에서는 1개, 데스크톱에서는 21개
+                    const initialArticles = this.isMobileView ? this.mobileArticlesPerView : this.articlesPerPage;
+                    const initialDisplayed = Math.min(initialArticles, articles.length);
                     articlesToShow = articles.slice(0, initialDisplayed);
                     this.displayedArticles.set(this.currentSection, initialDisplayed);
                 }
@@ -1132,6 +1048,11 @@
 
                 newsGrid.innerHTML = newsHtml;
                 console.log('News displayed successfully');
+                
+                // 모바일 스크롤 힌트 표시
+                if (this.isMobileView && articlesToShow.length > 0) {
+                    this.showMobileScrollHint();
+                }
             }
 
             toggleSection(articleId, sectionType) {
@@ -1266,8 +1187,14 @@
                             
                             this.loadNews(this.currentSection, true).finally(() => {
                                 this.isLoadingMore = false;
-                                loadMoreBtn.textContent = '더보기 (21개 추가)';
                                 loadMoreBtn.disabled = false;
+                                
+                                // 모바일과 데스크톱에서 다른 텍스트 복원
+                                if (this.isMobileView) {
+                                    loadMoreBtn.textContent = '다음 뉴스 (1개)';
+                                } else {
+                                    loadMoreBtn.textContent = '더보기 (21개 추가)';
+                                }
                             });
                         }
                     });
@@ -1276,11 +1203,19 @@
 
             updateLoadMoreButton(section, totalArticles) {
                 const loadMoreContainer = document.getElementById('load-more-container');
+                const loadMoreBtn = document.getElementById('load-more-btn');
                 const currentDisplayed = this.displayedArticles.get(section) || 0;
                 
                 // 세계섹션에서만 더보기 버튼 표시
                 if (section === 'world' && currentDisplayed < totalArticles) {
                     loadMoreContainer.style.display = 'block';
+                    
+                    // 모바일과 데스크톱에서 다른 텍스트 표시
+                    if (this.isMobileView) {
+                        loadMoreBtn.textContent = '다음 뉴스 (1개)';
+                    } else {
+                        loadMoreBtn.textContent = '더보기 (21개 추가)';
+                    }
                 } else {
                     loadMoreContainer.style.display = 'none';
                 }
@@ -1293,204 +1228,35 @@
                 }, 600000); // 10분마다 업데이트
             }
 
-            // 카드뉴스 관련 메서드들
-            setupCardNews() {
-                this.cardNewsContainer = document.getElementById('card-news-container');
+            // 모바일 관련 메서드들
+            checkMobileView() {
+                this.isMobileView = window.innerWidth <= 768 && 'ontouchstart' in window;
+                console.log('📱 Mobile view:', this.isMobileView);
+            }
+
+            setupMobileScrollHint() {
+                if (!this.isMobileView) return;
                 
-                // 모바일 감지 및 더블탭 이벤트 설정
-                this.setupMobileDetection();
-                this.setupCardNewsGestures();
-            }
-
-            setupMobileDetection() {
-                // 더블탭으로 카드뉴스 모드 토글 (모바일에서만)
-                let lastTap = 0;
-                document.addEventListener('touchend', (e) => {
-                    if (!this.isMobile()) return;
-                    
-                    const currentTime = new Date().getTime();
-                    const tapLength = currentTime - lastTap;
-                    
-                    if (tapLength < 500 && tapLength > 0) {
-                        // 더블탭 감지
-                        e.preventDefault();
-                        this.toggleCardNewsMode();
-                    }
-                    lastTap = currentTime;
-                });
-            }
-
-            isMobile() {
-                return window.innerWidth <= 768 && 'ontouchstart' in window;
-            }
-
-            toggleCardNewsMode() {
-                if (!this.isMobile()) return;
-                
-                if (this.isCardNewsMode) {
-                    this.exitCardNewsMode();
-                } else {
-                    this.enterCardNewsMode();
+                const hintElement = document.getElementById('mobile-scroll-hint');
+                if (hintElement) {
+                    // 3초 후 힌트 숨기기
+                    setTimeout(() => {
+                        hintElement.style.display = 'none';
+                    }, 3000);
                 }
             }
 
-            enterCardNewsMode() {
-                if (!this.isMobile() || this.isCardNewsMode) return;
+            showMobileScrollHint() {
+                if (!this.isMobileView) return;
                 
-                // 현재 섹션의 기사들 가져오기
-                const articles = this.allArticles.get(this.currentSection) || [];
-                if (articles.length === 0) return;
-                
-                this.isCardNewsMode = true;
-                this.cardNewsArticles = articles;
-                this.currentCardIndex = 0;
-                
-                // UI 변경
-                document.body.classList.add('card-news-mode');
-                document.getElementById('news-grid').style.display = 'none';
-                document.getElementById('load-more-container').style.display = 'none';
-                this.cardNewsContainer.style.display = 'block';
-                
-                // 카드뉴스 렌더링
-                this.renderCardNews();
-                
-                console.log('📱 카드뉴스 모드 활성화');
-            }
-
-            exitCardNewsMode() {
-                if (!this.isCardNewsMode) return;
-                
-                this.isCardNewsMode = false;
-                
-                // UI 복원
-                document.body.classList.remove('card-news-mode');
-                document.getElementById('news-grid').style.display = 'grid';
-                this.cardNewsContainer.style.display = 'none';
-                
-                // 더보기 버튼 복원
-                this.updateLoadMoreButton(this.currentSection, this.cardNewsArticles.length);
-                
-                console.log('📱 카드뉴스 모드 비활성화');
-            }
-
-            renderCardNews() {
-                if (!this.isCardNewsMode || this.cardNewsArticles.length === 0) return;
-                
-                this.cardNewsContainer.innerHTML = '';
-                
-                // 현재 카드와 다음 카드만 렌더링 (성능 최적화)
-                const indicesToRender = [
-                    Math.max(0, this.currentCardIndex - 1),
-                    this.currentCardIndex,
-                    Math.min(this.cardNewsArticles.length - 1, this.currentCardIndex + 1)
-                ];
-                
-                indicesToRender.forEach((index, position) => {
-                    if (index >= 0 && index < this.cardNewsArticles.length) {
-                        const article = this.cardNewsArticles[index];
-                        const cardElement = this.createCardNewsItem(article, index, position);
-                        this.cardNewsContainer.appendChild(cardElement);
-                    }
-                });
-            }
-
-            createCardNewsItem(article, index, position) {
-                const isActive = index === this.currentCardIndex;
-                const isPrev = index < this.currentCardIndex;
-                
-                const cardDiv = document.createElement('div');
-                cardDiv.className = `card-news-item ${isActive ? 'active' : ''} ${isPrev ? 'prev' : ''}`;
-                cardDiv.dataset.index = index;
-                
-                const progress = ((index + 1) / this.cardNewsArticles.length * 100).toFixed(1);
-                const timeAgo = this.getTimeAgo(article.publishedAt);
-                const displayTitle = article.titleKo || article.title || '제목 없음';
-                const summaryText = this.getSummaryText(article.summaryPoints || []);
-                
-                cardDiv.innerHTML = `
-                    <div class="card-news-header">
-                        <button class="card-news-close" onclick="newsApp.exitCardNewsMode()">✕</button>
-                        <div class="card-news-progress">
-                            <div class="card-news-progress-bar" style="width: ${progress}%"></div>
-                        </div>
-                        <div style="color: rgba(255,255,255,0.8); font-size: 0.8rem;">
-                            ${index + 1}/${this.cardNewsArticles.length}
-                        </div>
-                    </div>
+                const hintElement = document.getElementById('mobile-scroll-hint');
+                if (hintElement) {
+                    hintElement.style.display = 'block';
                     
-                    <div class="card-news-content">
-                        <div class="card-news-source">${article.source || 'Unknown'}</div>
-                        <h2 class="card-news-title">${displayTitle}</h2>
-                        <div class="card-news-summary">${summaryText}</div>
-                    </div>
-                    
-                    <div class="card-news-meta">
-                        <div>${timeAgo}</div>
-                        <div class="card-news-rating">${(article.rating || 0).toFixed(1)} ⭐</div>
-                    </div>
-                    
-                    ${index === 0 ? `
-                        <div class="card-news-instructions">
-                            위로 스와이프: 다음 뉴스<br>
-                            아래로 스와이프: 이전 뉴스<br>
-                            더블탭: 일반 모드로 돌아가기
-                        </div>
-                    ` : ''}
-                `;
-                
-                return cardDiv;
-            }
-
-            getSummaryText(summaryPoints) {
-                if (!summaryPoints || summaryPoints.length === 0) {
-                    return 'AI 요약 정보가 없습니다.';
-                }
-                return summaryPoints.slice(0, 3).join(' • ');
-            }
-
-            setupCardNewsGestures() {
-                this.cardNewsContainer.addEventListener('touchstart', (e) => {
-                    if (!this.isCardNewsMode || !this.isSwipeEnabled) return;
-                    this.touchStartY = e.touches[0].clientY;
-                }, { passive: true });
-                
-                this.cardNewsContainer.addEventListener('touchend', (e) => {
-                    if (!this.isCardNewsMode || !this.isSwipeEnabled) return;
-                    
-                    this.touchEndY = e.changedTouches[0].clientY;
-                    const deltaY = this.touchStartY - this.touchEndY;
-                    const minSwipeDistance = 50;
-                    
-                    if (Math.abs(deltaY) > minSwipeDistance) {
-                        if (deltaY > 0) {
-                            // 위로 스와이프 - 다음 뉴스
-                            this.nextCardNews();
-                        } else {
-                            // 아래로 스와이프 - 이전 뉴스
-                            this.prevCardNews();
-                        }
-                    }
-                }, { passive: true });
-            }
-
-            nextCardNews() {
-                if (!this.isCardNewsMode) return;
-                
-                if (this.currentCardIndex < this.cardNewsArticles.length - 1) {
-                    this.currentCardIndex++;
-                    this.renderCardNews();
-                } else {
-                    // 마지막 카드에서 더 스와이프하면 일반 모드로 돌아가기
-                    this.exitCardNewsMode();
-                }
-            }
-
-            prevCardNews() {
-                if (!this.isCardNewsMode) return;
-                
-                if (this.currentCardIndex > 0) {
-                    this.currentCardIndex--;
-                    this.renderCardNews();
+                    // 3초 후 자동 숨기기
+                    setTimeout(() => {
+                        hintElement.style.display = 'none';
+                    }, 3000);
                 }
             }
         }
