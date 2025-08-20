@@ -644,7 +644,7 @@
     <header class="header">
         <div class="header-container">
             <div class="logo">
-                <div class="logo-image">
+                <div class="logo-image" onclick="newsApp.scrollToTop()" style="cursor: pointer;">
                     <span class="logo-text">EmarkNews</span>
                     <span class="logo-com">.com</span>
                 </div>
@@ -1257,6 +1257,32 @@
                     setTimeout(() => {
                         hintElement.style.display = 'none';
                     }, 3000);
+                }
+            }
+
+            scrollToTop() {
+                if (this.isMobileView) {
+                    // 모바일: 첫 번째 뉴스 카드로 부드럽게 스크롤
+                    const firstNewsItem = document.querySelector('.news-item');
+                    if (firstNewsItem) {
+                        firstNewsItem.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                        
+                        // 스크롤 힌트 표시
+                        this.showMobileScrollHint();
+                        
+                        console.log('📱 첫 번째 뉴스 카드로 이동');
+                    }
+                } else {
+                    // 데스크톱: 페이지 맨 위로 스크롤
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                    
+                    console.log('🖥️ 페이지 맨 위로 이동');
                 }
             }
         }
