@@ -50,7 +50,7 @@ class NewsService {
                     { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC', lang: 'en' },
                     { url: 'https://rss.cnn.com/rss/edition_world.rss', name: 'CNN', lang: 'en' },
                     { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', name: 'New York Times', lang: 'en' },
-                    { url: 'https://www.reuters.com/arc/outboundfeeds/news-feed/?outputType=xml', name: 'Reuters', lang: 'en' }, // 유효 URL 수정
+                    { url: 'https://www.reuters.com/pf/feeds/world.xml', name: 'Reuters World', lang: 'en' }, // 대안 공식 URL (검색 기반)
                     { url: 'https://abcnews.go.com/abcnews/internationalheadlines/rss', name: 'ABC News', lang: 'en' }
                 ]
             },
@@ -223,15 +223,30 @@ class NewsService {
     async fetchFromRSS(sources) {
         const rssPromises = sources.map(async (source) => {
             try {
+                // User-Agent 랜덤화로 블로킹 우회 시도
+                this.parser.options.headers['User-Agent'] = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`; // 브라우저 흉내
                 const feed = await this.parser.parseURL(source.url);
                 return feed.items.slice(0, 10).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
             } catch (error) {
-                logger.warn(`RSS fetch failed from ${source.name}: ${error.message}`);
+                logger.warn(`RSS fetch failed from ${source.name}: ${error.message}. Trying fallback if available.`);
+                // Fallback: 대안 URL 시도 (e.g., Reuters 경우)
+                if (source.name === 'Reuters World') {
+                    try {
+                        const fallbackUrl = 'https://www.reuters.com/rssFeed/worldNews'; // 또 다른 대안
+                        const feed = await this.parser.parseURL(fallbackUrl);
+                        return feed.items.slice(0, 10).map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
+                    } catch (fallbackError) {
+                        logger.error(`Fallback RSS failed for Reuters: ${fallbackError.message}`);
+                        return [];
+                    }
+                }
                 return [];
             }
         });
-        const results = await Promise.all(rssPromises);
-        return results.flat();
+        const results = await Promise.allSettled(rssPromises); // Gemini 장점: 부분 실패 OK
+        return results
+            .filter(result => result.status === 'fulfilled')
+            .flatMap(result => result.value || []);
     }
 
     // Normalize (Gemini 장점)
