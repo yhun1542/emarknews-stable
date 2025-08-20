@@ -1095,8 +1095,12 @@
                 const newsGrid = document.getElementById('news-grid');
                 const youtubeSection = document.getElementById('youtube-section');
                 
-                newsGrid.style.display = 'grid';
-                youtubeSection.style.display = 'none';
+                if (newsGrid) {
+                    newsGrid.style.display = 'grid';
+                }
+                if (youtubeSection) {
+                    youtubeSection.style.display = 'none';
+                }
             }
 
             loadYouTubeVideos() {
