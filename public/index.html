@@ -731,6 +731,14 @@
                     if (section === null) section = this.currentSection;
                     
                     console.log('Loading news for section:', section, 'loadMore:', loadMore);
+                    
+                    // 섹션이 변경되었을 때 이전 섹션 캐시 클리어 (BBC 혼재 방지)
+                    if (section !== this.currentSection && !loadMore) {
+                        console.log('🧹 Clearing cache for section change:', this.currentSection, '→', section);
+                        this.allArticles.clear(); // 모든 캐시 클리어
+                        this.displayedArticles.clear(); // 표시된 기사 수 초기화
+                    }
+                    
                     this.currentSection = section;
                     
                     if (section === 'youtube') {
