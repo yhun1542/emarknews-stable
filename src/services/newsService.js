@@ -7,6 +7,7 @@ const ratingService = require('./ratingservice');
 
 // 환경 변수 로드
 const NEWS_API_KEY = process.env.NEWS_API_KEY || 'your-newsapi-key-here';
+const GNEWS_API_KEY = process.env.GNEWS_API_KEY || 'your-gnews-api-key-here';
 const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || 'your-naver-client-id';
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'your-naver-client-secret';
 const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || 'your-twitter-bearer-token';
@@ -40,11 +41,16 @@ class NewsService {
             headers: X_BEARER_TOKEN ? { 'Authorization': `Bearer ${X_BEARER_TOKEN}` } : {},
             timeout: API_TIMEOUT
         });
+        this.gnewsApi = axios.create({
+            baseURL: 'https://gnews.io/api/v4/',
+            timeout: API_TIMEOUT
+        });
         // 소스 정의 (Grok 장점: 섹션별 API/RSS 구조 + 다양한 RSS)
         this.sources = {
             world: {
                 api: [
-                    { type: 'newsapi', params: { category: 'general', country: 'us' } }
+                    { type: 'newsapi', params: { category: 'general', country: 'us' } },
+                    { type: 'gnews', params: { category: 'world', lang: 'en' } }
                 ],
                 rss: [
                     // 영미권 메이저
@@ -177,6 +183,8 @@ class NewsService {
         sources.api.forEach(apiSource => {
             if (apiSource.type === 'newsapi') {
                 fetchPromises.push(this.fetchFromNewsAPI(apiSource.params, 'en'));
+            } else if (apiSource.type === 'gnews') {
+                fetchPromises.push(this.fetchFromGNewsAPI(apiSource.params));
             } else if (apiSource.type === 'naver') {
                 fetchPromises.push(this.fetchFromNaverAPI(apiSource.params.query, apiSource.params.display));
             } else if (apiSource.type === 'twitter') {
@@ -340,6 +348,240 @@ class NewsService {
             logger.error(`NewsAPI fetch failed: ${error.message}`);
             return [];
         }
+    }
+
+    async fetchFromGNewsAPI(params) {
+        if (!GNEWS_API_KEY) return [];
+        
+        try {
+            const TARGET_RESULTS = 50;
+            const HOURS_WINDOW = 12;
+            const allArticles = [];
+            
+            // 고품질 핫토픽 키워드 (첨부 파일 기반)
+            const HOT_QUERIES = [
+                "war OR conflict","Ukraine OR Gaza OR Middle East","election OR parliament",
+                "sanctions OR ceasefire","NATO OR UN Security Council",
+                "Federal Reserve OR interest rates OR inflation","oil prices OR OPEC","stock market OR selloff",
+                "GDP OR recession","FX OR currency crisis",
+                "AI OR artificial intelligence OR semiconductor","data center OR cloud","electric vehicle OR battery",
+                "outbreak OR pandemic OR WHO","earthquake OR typhoon OR wildfire OR heatwave",
+                "recall OR antitrust OR lawsuit OR settlement","earnings OR guidance",
+                "Korea OR Japan OR China summit","North Korea OR missile"
+            ];
+            
+            const fromTime = new Date(Date.now() - HOURS_WINDOW * 60 * 60 * 1000).toISOString();
+            const toTime = new Date().toISOString();
+            
+            // Phase 1: GNews Top Headlines (World)
+            try {
+                const response = await this.gnewsApi.get('top-headlines', {
+                    params: {
+                        category: params.category || 'world',
+                        lang: params.lang || 'en',
+                        max: 50,
+                        apikey: GNEWS_API_KEY
+                    }
+                });
+                
+                if (response.data.articles) {
+                    allArticles.push(...response.data.articles.map(item => ({
+                        ...this.normalizeGNewsArticle(item),
+                        _meta: { src: 'gnews-top', category: params.category }
+                    })));
+                }
+            } catch (error) {
+                logger.warn(`GNews top-headlines failed: ${error.message}`);
+            }
+            
+            // Phase 2: GNews Search with hot queries (if not enough articles)
+            if (allArticles.length < TARGET_RESULTS) {
+                for (const query of HOT_QUERIES.slice(0, 8)) {
+                    try {
+                        const response = await this.gnewsApi.get('search', {
+                            params: {
+                                q: query,
+                                lang: params.lang || 'en',
+                                from: fromTime,
+                                to: toTime,
+                                sortby: 'publishedAt',
+                                in: 'title,description',
+                                max: 25,
+                                apikey: GNEWS_API_KEY
+                            }
+                        });
+                        
+                        if (response.data.articles) {
+                            allArticles.push(...response.data.articles.map(item => ({
+                                ...this.normalizeGNewsArticle(item),
+                                _meta: { src: 'gnews-search', query: query }
+                            })));
+                        }
+                        
+                        // Rate limiting
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        if (allArticles.length >= TARGET_RESULTS) break;
+                        
+                    } catch (error) {
+                        logger.warn(`GNews search failed for query "${query}": ${error.message}`);
+                        // Rate limit 에러 시 더 긴 대기
+                        if (error.response?.status === 429) {
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        }
+                    }
+                }
+            }
+            
+            // 중복 제거 및 스코어링
+            const uniqueArticles = this.deduplicateGNewsArticles(allArticles);
+            const scoredArticles = uniqueArticles.map(article => ({
+                ...article,
+                _sourceScore: this.calculateGNewsScore(article)
+            }));
+            
+            // 고급 클러스터링 (첨부 파일 로직)
+            const clusteredArticles = this.clusterSimilarGNewsArticles(scoredArticles);
+            
+            // 상위 결과 반환
+            return clusteredArticles
+                .sort((a, b) => (b._sourceScore || 0) - (a._sourceScore || 0))
+                .slice(0, TARGET_RESULTS);
+                
+        } catch (error) {
+            logger.error(`GNews API fetch failed: ${error.message}`);
+            return [];
+        }
+    }
+
+    normalizeGNewsArticle(item) {
+        return {
+            title: item.title,
+            description: item.description,
+            content: item.description,
+            url: item.url,
+            urlToImage: item.image,
+            source: { name: item.source?.name || 'GNews', id: item.source?.id || '' },
+            publishedAt: item.publishedAt,
+            apiSource: 'GNews',
+            language: 'en'
+        };
+    }
+
+    calculateGNewsScore(article) {
+        const title = (article.title || '');
+        const description = (article.description || '');
+        const content = `${title} ${description}`.toLowerCase();
+        
+        // 소스 가중치 (첨부 파일 기반)
+        const SOURCE_WEIGHTS = {
+            "reuters.com":5,"apnews.com":5,"afp.com":4,"bloomberg.com":5,"wsj.com":5,"ft.com":5,"economist.com":5,
+            "bbc.com":4,"cnn.com":3,"nytimes.com":5,"washingtonpost.com":4,"theguardian.com":4,
+            "aljazeera.com":4,"dw.com":3,"spiegel.de":3,"lemonde.fr":4,"elpais.com":3,"scmp.com":4,
+            "yna.co.kr":4,"koreaherald.com":3,"koreatimes.co.kr":3
+        };
+        
+        let score = 0;
+        
+        // 소스 가중치
+        const host = this.getHost(article.url || '');
+        for (const [domain, weight] of Object.entries(SOURCE_WEIGHTS)) {
+            if (host.includes(domain)) {
+                score += weight;
+                break;
+            }
+        }
+        
+        // 영향도 키워드 (첨부 파일 기반)
+        const IMPACT_KEYWORDS = [
+            "war","conflict","sanction","missile","nuclear",
+            "inflation","rate hike","rate cut","gdp","recession","default","bankruptcy",
+            "ai","semiconductor","chip","export control","data center","battery","ev",
+            "earthquake","typhoon","wildfire","outbreak","pandemic","recall","antitrust","lawsuit","settlement",
+            "election","parliament","ceasefire","opec"
+        ];
+        
+        for (const keyword of IMPACT_KEYWORDS) {
+            if (content.includes(keyword)) {
+                score += 2;
+            }
+        }
+        
+        // 제목 길이 보너스
+        const titleLength = title.replace(/\s+/g, '').length;
+        if (titleLength >= 28 && titleLength <= 110) {
+            score += 1;
+        }
+        
+        // 최신성 보너스
+        if (article.publishedAt) {
+            const hoursAgo = Math.abs(new Date() - new Date(article.publishedAt)) / (1000 * 60 * 60);
+            if (hoursAgo <= 2) score += 2;
+            else if (hoursAgo <= 6) score += 1;
+        }
+        
+        return score;
+    }
+
+    deduplicateGNewsArticles(articles) {
+        const seen = new Set();
+        const unique = [];
+        
+        for (const article of articles) {
+            const key = (article.url || '') + '||' + (article.title || '');
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(article);
+            }
+        }
+        
+        return unique;
+    }
+
+    clusterSimilarGNewsArticles(articles) {
+        // Jaccard 유사도 기반 클러스터링 (첨부 파일 로직)
+        const clusters = [];
+        const SIMILARITY_THRESHOLD = 0.76;
+        
+        for (const article of articles) {
+            let placed = false;
+            
+            for (const cluster of clusters) {
+                if (this.calculateJaccardSimilarity(cluster.representative.title, article.title) >= SIMILARITY_THRESHOLD) {
+                    cluster.items.push(article);
+                    // 더 높은 스코어의 기사를 대표로 선택
+                    if ((article._sourceScore || 0) > (cluster.representative._sourceScore || 0)) {
+                        cluster.representative = article;
+                    }
+                    placed = true;
+                    break;
+                }
+            }
+            
+            if (!placed) {
+                clusters.push({
+                    representative: article,
+                    items: [article]
+                });
+            }
+        }
+        
+        // 각 클러스터의 대표 기사만 반환
+        return clusters.map(cluster => ({
+            ...cluster.representative,
+            _clusterSize: cluster.items.length
+        }));
+    }
+
+    calculateJaccardSimilarity(title1, title2) {
+        const tokenize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9가-힣\s]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+        const tokens1 = new Set(tokenize(title1));
+        const tokens2 = new Set(tokenize(title2));
+        
+        const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
+        const union = new Set([...tokens1, ...tokens2]);
+        
+        return union.size ? intersection.size / union.size : 0;
     }
 
     calculateNewsAPIScore(item, sourceWeights) {
