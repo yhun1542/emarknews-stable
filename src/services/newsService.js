@@ -32,7 +32,8 @@ class NewsService {
                 { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK' }
             ],
             business: [
-                { url: 'https://feeds.reuters.com/reuters/businessNews', name: 'Reuters Business' }
+                { url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg Markets' },
+                { url: 'https://feeds.feedburner.com/wsj/xml/rss/3_7085.xml', name: 'WSJ Business' }
             ],
             buzz: [
                 { url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', name: 'BBC Entertainment' }
