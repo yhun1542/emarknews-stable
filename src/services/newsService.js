@@ -173,9 +173,7 @@ class NewsService {
             },
             japan: {
                 api: [
-                    { type: 'newsapi', params: { country: 'jp', category: 'general' } },
-                    { type: 'gnews', params: { country: 'jp', category: 'nation', lang: 'ja' } },
-                    { type: 'gnews', params: { country: 'jp', category: 'general', lang: 'ja' } }
+                    // API 제거 - 순수 일본 언론사 RSS만 사용
                 ],
                 rss: [
                     // 일본 주요 언론사만 (순수 일본 국내 뉴스)
@@ -189,7 +187,7 @@ class NewsService {
                     // 일본 전문 영문 뉴스만
                     { url: 'https://english.kyodonews.net/rss/news.xml', name: 'Kyodo News English', lang: 'en' }
                 ],
-                // 일본 국내 이슈 특화 키워드
+                // 일본 국내 이슈 특화 키워드 (RSS 전용)
                 keywords: [
                     "日本 OR Japan domestic OR 国内",
                     "岸田 OR 自民党 OR 立憲民主党 OR 政治",
