@@ -178,32 +178,32 @@ class NewsService {
                     { type: 'gnews', params: { country: 'jp', category: 'general', lang: 'ja' } }
                 ],
                 rss: [
-                    // 일본 주요 언론사
+                    // 일본 주요 언론사만 (순수 일본 국내 뉴스)
                     { url: 'https://www3.nhk.or.jp/rss/news/cat0.xml', name: 'NHK', lang: 'ja' },
                     { url: 'https://www.asahi.com/rss/asahi/newsheadlines.rdf', name: 'Asahi Shimbun', lang: 'ja' },
                     { url: 'https://www.yomiuri.co.jp/rss/news.xml', name: 'Yomiuri Shimbun', lang: 'ja' },
                     { url: 'https://mainichi.jp/rss/etc/mainichi-flash.rss', name: 'Mainichi Shimbun', lang: 'ja' },
                     { url: 'https://www.nikkei.com/news/latest/feed/', name: 'Nikkei', lang: 'ja' },
+                    { url: 'https://www.sankei.com/rss/news/main.xml', name: 'Sankei Shimbun', lang: 'ja' },
                     { url: 'https://www.japantimes.co.jp/feed/', name: 'Japan Times', lang: 'en' },
-                    // 국제 언론사 일본 관련
-                    { url: 'https://www.reuters.com/rssFeed/worldNews', name: 'Reuters World', lang: 'en' },
-                    { url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml', name: 'BBC Asia', lang: 'en' }
+                    // 일본 전문 영문 뉴스만
+                    { url: 'https://english.kyodonews.net/rss/news.xml', name: 'Kyodo News English', lang: 'en' }
                 ],
-                // 일본 섹션 특화 설정
+                // 일본 국내 이슈 특화 키워드
                 keywords: [
-                    "Japan AND (Diet OR parliament OR cabinet OR prime minister)",
-                    "Japan AND (election OR poll OR reshuffle)",
-                    "Nikkei OR BOJ OR Bank of Japan OR inflation OR yen",
-                    "semiconductor Japan OR TSMC Kumamoto OR Rapidus",
-                    "automotive Japan OR Toyota OR Honda OR EV OR battery",
-                    "earthquake Japan OR typhoon Japan OR heatwave Japan OR Fukushima",
-                    "North Korea OR missile Japan OR defense Japan",
-                    "earnings Japan OR guidance Japan OR recall Japan"
+                    "日本 OR Japan domestic OR 国内",
+                    "岸田 OR 自民党 OR 立憲民主党 OR 政治",
+                    "日銀 OR BOJ OR 円安 OR インフレ",
+                    "トヨタ OR ホンダ OR ソニー OR 任天堂",
+                    "地震 OR 台風 OR 災害 OR 福島",
+                    "選挙 OR 国会 OR 内閣 OR 政権",
+                    "経済 OR GDP OR 株価 OR 日経平均",
+                    "コロナ OR ワクチン OR 医療 OR 厚労省"
                 ],
                 sourceWeights: {
                     "nhk.or.jp": 5, "nikkei.com": 5, "asahi.com": 4, "yomiuri.co.jp": 4, 
                     "mainichi.jp": 4, "sankei.com": 3, "japantimes.co.jp": 4,
-                    "reuters.com": 5, "bloomberg.com": 5, "bbc.com": 4
+                    "kyodonews.net": 4
                 }
             },
             business: {
