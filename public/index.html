@@ -574,6 +574,24 @@
         <div id="loading">AI가 뉴스를 분석중입니다...</div>
         <div id="news-grid" class="news-grid"></div>
         
+        <!-- 더보기 버튼 -->
+        <div id="load-more-container" style="display: none; text-align: center; margin: 2rem 0;">
+            <button id="load-more-btn" style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                padding: 1rem 2rem;
+                border-radius: 25px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            ">
+                더보기 (21개 추가)
+            </button>
+        </div>
+        
         <div class="youtube-section" id="youtube-section" style="display: none;">
             <h3>📺 주요 언론사 영상 뉴스</h3>
             <div class="youtube-grid" id="youtube-grid"></div>
@@ -597,9 +615,9 @@
                 this.updateInterval = null;
                 this.nextUpdateCountdown = 600;
                 
-                // 페이지네이션 상태 추가
-                this.currentPages = new Map(); // 각 섹션별 현재 페이지
-                this.hasMorePages = new Map(); // 각 섹션별 더 많은 페이지 존재 여부
+                // 더보기 버튼 시스템
+                this.displayedArticles = new Map(); // 각 섹션별 현재 표시된 기사 수
+                this.articlesPerPage = 21; // 페이지당 기사 수
                 this.isLoadingMore = false; // 추가 로딩 중인지 확인
                 
                 this.init();
@@ -609,7 +627,7 @@
                 this.loadCurrency();
                 this.loadNews();
                 this.setupNavigation();
-                this.setupInfiniteScroll(); // 무한 스크롤 설정 추가
+                this.setupLoadMore(); // 더보기 버튼 설정
                 this.startAutoUpdate();
             }
 
@@ -726,6 +744,7 @@
                     if (!loadMore) {
                         document.getElementById('loading').style.display = 'block';
                         document.getElementById('news-grid').style.display = 'none';
+                        this.displayedArticles.set(section, 0); // 표시된 기사 수 초기화
                     }
                     
                     // 실제 API에서 데이터 가져오기
@@ -745,18 +764,8 @@
                         
                         const apiSection = sectionMap[section] || section;
                         
-                        // 단계별 로딩: 세계섹션의 경우 50개까지 점진적 로딩
-                        let limit = 20; // 기본값
-                        if (section === 'world') {
-                            const currentArticles = this.allArticles.get(section) || [];
-                            if (currentArticles.length === 0) {
-                                limit = 15; // 첫 로딩
-                            } else if (currentArticles.length < 30) {
-                                limit = 30; // 두 번째 로딩
-                            } else if (currentArticles.length < 50) {
-                                limit = 50; // 최종 로딩
-                            }
-                        }
+                        // 더보기 시스템: 충분한 기사를 가져오기 위해 큰 limit 사용
+                        let limit = 50; // 충분한 기사 확보
                         
                         console.log(`🌐 API 호출: /api/news/${apiSection}?limit=${limit}`);
                         
@@ -778,12 +787,15 @@
                     
                     console.log('Articles loaded:', articles.length);
                     
-                    // 뉴스 표시
-                    this.displayNews(articles);
+                    // 뉴스 표시 (더보기 시스템 적용)
+                    this.displayNews(articles, loadMore);
                     
                     // 로딩 숨기고 그리드 표시
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('news-grid').style.display = 'grid';
+                    
+                    // 더보기 버튼 표시/숨김 처리
+                    this.updateLoadMoreButton(section, articles.length);
                     
                 } catch (error) {
                     console.error('Failed to load news:', error);
@@ -797,7 +809,7 @@
                 // 더미 데이터 사용 안함 - 실제 API만 사용
                 return [];
             }
-            displayNews(articles) {
+            displayNews(articles, loadMore = false) {
                 const newsGrid = document.getElementById('news-grid');
                 
                 if (!articles || articles.length === 0) {
@@ -805,7 +817,24 @@
                     return;
                 }
 
-                const newsHtml = articles.map((article, index) => {
+                // 현재 표시된 기사 수 확인
+                const currentDisplayed = this.displayedArticles.get(this.currentSection) || 0;
+                
+                // 표시할 기사 범위 계산
+                let articlesToShow;
+                if (loadMore) {
+                    // 더보기: 기존 + 21개 추가
+                    const newDisplayed = Math.min(currentDisplayed + this.articlesPerPage, articles.length);
+                    articlesToShow = articles.slice(0, newDisplayed);
+                    this.displayedArticles.set(this.currentSection, newDisplayed);
+                } else {
+                    // 첫 로딩: 21개만
+                    const initialDisplayed = Math.min(this.articlesPerPage, articles.length);
+                    articlesToShow = articles.slice(0, initialDisplayed);
+                    this.displayedArticles.set(this.currentSection, initialDisplayed);
+                }
+
+                const newsHtml = articlesToShow.map((article, index) => {
                     const articleId = `article_${Date.now()}_${index}`;
                     const timeAgo = this.getTimeAgo(article.publishedAt);
                     const rating = article.rating || 0;
@@ -1022,6 +1051,37 @@
                 });
             }
 
+            setupLoadMore() {
+                const loadMoreBtn = document.getElementById('load-more-btn');
+                if (loadMoreBtn) {
+                    loadMoreBtn.addEventListener('click', () => {
+                        if (!this.isLoadingMore) {
+                            this.isLoadingMore = true;
+                            loadMoreBtn.textContent = '로딩 중...';
+                            loadMoreBtn.disabled = true;
+                            
+                            this.loadNews(this.currentSection, true).finally(() => {
+                                this.isLoadingMore = false;
+                                loadMoreBtn.textContent = '더보기 (21개 추가)';
+                                loadMoreBtn.disabled = false;
+                            });
+                        }
+                    });
+                }
+            }
+
+            updateLoadMoreButton(section, totalArticles) {
+                const loadMoreContainer = document.getElementById('load-more-container');
+                const currentDisplayed = this.displayedArticles.get(section) || 0;
+                
+                // 세계섹션에서만 더보기 버튼 표시
+                if (section === 'world' && currentDisplayed < totalArticles) {
+                    loadMoreContainer.style.display = 'block';
+                } else {
+                    loadMoreContainer.style.display = 'none';
+                }
+            }
+
             startAutoUpdate() {
                 this.updateInterval = setInterval(() => {
                     console.log('Auto-updating news...');
@@ -1042,18 +1102,6 @@
             // 네비게이션 설정
             newsApp.setupNavigation();
             console.log('✅ 네비게이션 설정 완료');
-            
-            // 스크롤 이벤트 리스너 추가 (세계섹션 단계별 로딩)
-            window.addEventListener('scroll', () => {
-                if (newsApp.currentSection === 'world' && 
-                    (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
-                    const currentArticles = newsApp.allArticles.get('world') || [];
-                    if (currentArticles.length < 50) {
-                        console.log('🔄 세계섹션 추가 로딩...');
-                        newsApp.loadNews('world', true);
-                    }
-                }
-            });
             
             // 초기 뉴스 로딩
             console.log('🔄 초기 뉴스 로딩 시작...');
