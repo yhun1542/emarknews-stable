@@ -310,34 +310,16 @@ class NewsService {
             };
         }));
 
-        // 중복 제거 및 정교한 정렬: rating 내림차순 우선, 그 다음 publishedAt 내림차순
+        // 중복 제거
         const uniqueArticles = processedArticles.filter((article, index, self) => 
             index === self.findIndex(a => a.url === article.url)
-        ).sort((a, b) => {
-            // 1. rating 내림차순 (중요도 우선)
-            if (b.rating !== a.rating) return b.rating - a.rating;
-            // 2. publishedAt 내림차순 (동일 rating 내 최신순)
-            return new Date(b.publishedAt) - new Date(a.publishedAt);
-        }).slice(0, 50); // 최대 50개 제한
+        );
 
-        // 다양성 추가: 상위 10개 중 태그가 너무 집중되지 않도록 섞기 (간단 구현)
-        if (uniqueArticles.length > 10) {
-            const top10 = uniqueArticles.slice(0, 10);
-            const tagMap = new Map();
-            top10.forEach(article => {
-                article.tags.forEach(tag => {
-                    tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
-                });
-            });
-            // 만약 하나의 태그가 5개 이상이면, 나머지 기사에서 섞음 (단순화)
-            if (Array.from(tagMap.values()).some(count => count >= 5)) {
-                uniqueArticles.sort((a, b) => Math.random() - 0.5); // 랜덤 섞기 (다양성 강제)
-                uniqueArticles.sort((a, b) => b.rating - a.rating || new Date(b.publishedAt) - new Date(a.publishedAt)); // 재정렬
-            }
-        }
+        // ⭐ 스마트 정렬 (Hot Score 알고리즘) 적용 ⭐
+        const smartSortedArticles = this.smartSort(uniqueArticles).slice(0, 50); // 최대 50개 제한
 
         const result = {
-            articles: uniqueArticles,
+            articles: smartSortedArticles,
             total: uniqueArticles.length,
             timestamp: new Date().toISOString(),
             cached: false,
@@ -356,6 +338,48 @@ class NewsService {
             success: true,
             data: result
         };
+    }
+
+    // --- ⭐ [신규 추가] 스마트 정렬 함수 (Hot Score 알고리즘) ⭐ ---
+    /**
+     * 기사를 중요도(Rating)와 최신성(Recency)을 조합하여 정렬합니다.
+     * @param {Array} articles 정렬할 기사 배열
+     * @returns {Array} 정렬된 기사 배열
+     */
+    smartSort(articles) {
+        const now = new Date().getTime();
+        
+        // Gravity(중력) 설정: 값이 클수록 오래된 기사의 점수가 급격히 감소합니다. (1.5 ~ 1.8 권장)
+        const gravity = 1.6; 
+
+        const articlesWithScore = articles.map(article => {
+            const publishedTime = new Date(article.publishedAt).getTime();
+
+            // 유효하지 않은 날짜 처리
+            if (isNaN(publishedTime)) {
+                logger.warn(`Invalid date encountered for article: ${article.url}`);
+                return { ...article, debugScore: 0 };
+            }
+            
+            // 1. 기사 경과 시간 (시간 단위, 최소 0)
+            const ageInHours = Math.max(0, (now - publishedTime) / (1000 * 60 * 60));
+            
+            // 2. 중요도 점수 (평점 기반, rating은 1~5점)
+            // 평점(Rating)에 제곱을 하여 중요한 기사(Rating 4~5)의 가중치를 더 강조합니다.
+            const rating = article.rating || 3; // 평점이 없으면 기본값 3
+            const importanceScore = Math.pow(rating, 2); 
+
+            // 3. Hot Score 계산 (Hacker News 알고리즘 응용)
+            // Score = Importance / (Age + 2)^Gravity
+            // 시간이 지날수록 분모가 커져서 전체 점수가 감소합니다.
+            const score = importanceScore / Math.pow(ageInHours + 2, gravity);
+            
+            // 디버깅 및 확인을 위해 score를 기사 객체에 포함하여 반환 (프론트엔드에서 확인 가능)
+            return { ...article, debugScore: parseFloat(score.toFixed(3)) };
+        });
+
+        // 최종 점수순으로 정렬 (내림차순)
+        return articlesWithScore.sort((a, b) => b.debugScore - a.debugScore);
     }
 }
 
