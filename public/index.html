@@ -754,18 +754,40 @@
                     tags = ["Hot", "테크", "Buzz", "경제"];
                 }
 
-
-                mockArticles.push({
+                const article = {
                     id: `${section}-${i}`,
                     titleKo: `[${section.toUpperCase()}] 뉴스 ${i} - AI가 산업을 혁신합니다 ${longSummary ? "(긴 기사 테스트)" : ""}`,
+                    title: `[${section.toUpperCase()}] News ${i} - AI revolutionizes industry ${longSummary ? "(Long article test)" : ""}`,
                     source: source,
                     publishedAt: new Date(Date.now() - i * 25 * 60000).toISOString(),
                     rating: 4.5 + (Math.random() * 0.5),
                     tags: tags,
                     summaryPoints: summaryPoints,
-                    // 미리보기 링크 연결
-                    url: "detail_sample_v12.html" 
-                });
+                    fullSummaryPoints: summaryPoints.concat([
+                        "상세 요약 추가 정보: 이 기술은 향후 5년 내에 전 산업에 걸쳐 확산될 것으로 예상됩니다.",
+                        "전문가 의견: 규제 당국은 AI 윤리 가이드라인 마련에 적극 나서야 한다고 강조했습니다.",
+                        "시장 전망: AI 관련 투자는 2025년까지 2배 이상 증가할 것으로 전망됩니다."
+                    ]),
+                    description: `이 기사는 ${section} 섹션의 ${i}번째 뉴스입니다. AI 기술의 발전과 그 영향에 대해 다루고 있습니다.`,
+                    content: `AI 기술이 ${section} 분야에서 혁신적인 변화를 가져오고 있습니다. 
+
+이번 연구 결과에 따르면, 인공지능 도입으로 인한 생산성 향상이 예상보다 빠르게 진행되고 있으며, 특히 ${section} 영역에서 두드러진 성과를 보이고 있습니다.
+
+전문가들은 이러한 변화가 단순히 기술적 진보에 그치지 않고, 사회 전반의 패러다임 변화를 이끌 것이라고 전망하고 있습니다.
+
+향후 전망:
+- 단기적으로는 기존 업무 프로세스의 자동화가 가속화될 것
+- 중장기적으로는 완전히 새로운 비즈니스 모델이 등장할 것
+- 장기적으로는 인간과 AI의 협업 체계가 정착될 것
+
+이러한 변화에 대비하여 기업들은 AI 기술 도입과 함께 인력 재교육에도 적극 투자해야 할 것으로 보입니다.`,
+                    url: `https://example.com/news/${section}/${i}`,
+                    hasTranslation: true,
+                    hasSummary: true,
+                    aiDetailedSummary: summaryPoints.join(' ')
+                };
+
+                mockArticles.push(article);
             }
             return mockArticles;
         }
