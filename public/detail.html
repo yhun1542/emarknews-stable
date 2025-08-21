@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>상세보기 - EmarkNews</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <style>
+        :root {
+            --primary-color: #5a4fcf;
+            --primary-dark: #4338ca;
+            --background-color: #f8f9fa;
+            --surface-color: #ffffff;
+            --text-color: #1e293b;
+            --text-secondary: #64748b;
+            --text-content: #334155;
+            --border-color: #e2e8f0;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            background: var(--surface-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .header-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: var(--text-color);
+        }
+
+        .logo-svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .logo-com {
+            color: var(--primary-color);
+            font-size: 16px;
+            font-weight: 700;
+            position: relative;
+            top: 1px;
+        }
+
+        .content-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        #loading {
+             text-align: center;
+             padding: 4rem;
+             font-size: 1.2rem;
+        }
+        
+        .article-content.hidden {
+            display: none;
+        }
+
+        .article-header {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+
+        .article-title {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.3;
+            margin-bottom: 1.5rem;
+        }
+
+        .article-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .source {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-right: 0.5rem;
+        }
+
+         .rating-badge {
+            background: var(--primary-dark);
+            color: white;
+            padding: 0.3rem 0.7rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 700;
+             display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .rating-star {
+             color: #FFD700;
+        }
+
+        /* 탭 인터페이스 스타일 */
+        .tabs-container {
+            background: var(--surface-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 2rem;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-button {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            background: none;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: -2px;
+        }
+
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .tab-content {
+            max-height: 75vh;
+            overflow-y: auto;
+            padding-right: 1rem;
+        }
+
+        .tab-content::-webkit-scrollbar { display: none; }
+        .tab-content { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .summary-point {
+            font-size: 1rem;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+            color: var(--text-content);
+        }
+        
+        .summary-bullet {
+            color: var(--primary-color);
+            margin-right: 0.8rem;
+            flex-shrink: 0;
+            padding-top: 4px;
+        }
+
+        .translation-text {
+            font-size: 1rem;
+            line-height: 1.9;
+            color: var(--text-content);
+            white-space: pre-wrap;
+            background-color: #f8f9ff;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+
+        .action-footer {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .action-button {
+            display: block;
+            width: 100%;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .close-button {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .link-button {
+            background: var(--primary-color);
+            color: white;
+        }
+
+
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 1rem;
+            }
+             .logo-svg {
+                 width: 28px;
+                height: 28px;
+            }
+            .logo-text {
+                font-size: 20px;
+            }
+            .logo-com {
+                font-size: 14px;
+            }
+            .article-title {
+                font-size: 1.6rem;
+            }
+            .content-container {
+                margin: 1rem auto;
+            }
+            .tabs-container, .article-header {
+                padding: 1.5rem;
+                border-radius: 0;
+            }
+            .tab-button {
+                font-size: 1rem;
+                padding: 0.8rem 1rem;
+            }
+            .action-footer {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <a href="index.html" class="logo">
+                <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="grad_detail" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#5a4fcf" />
+                      <stop offset="100%" stop-color="#7c73e6" />
+                    </linearGradient>
+                  </defs>
+                  <rect width="64" height="64" rx="16" fill="url(#grad_detail)"/>
+                  <path d="M20 18 H44 V26 H28 V32 H42 V40 H28 V46 H44 V54 H20 Z" fill="white" transform="translate(0, -5)"/>
+                </svg>
+                <span class="logo-text">EmarkNews</span><span class="logo-com">.com</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="content-container">
+        <div id="loading">기사 내용을 불러오는 중입니다...</div>
+        
+        <div class="article-content hidden">
+            <header class="article-header">
+                <h1 id="article-title" class="article-title"></h1>
+                <div class="article-meta">
+                    <div id="source-time" class="source-time"></div>
+                    <div id="rating-badge" class="rating-badge"></div>
+                </div>
+            </header>
+
+            <div class="tabs-container">
+                <div class="tabs">
+                    <button id="btn-summary" class="tab-button active" onclick="showTab('summary')">✨ AI 상세 요약</button>
+                    <button id="btn-translation" class="tab-button" onclick="showTab('translation')">🌐 원문 번역</button>
+                </div>
+
+                <div id="tab-summary" class="tab-content">
+                    <div id="summary-content" class="summary-content"></div>
+                    <div class="action-footer">
+                        <a id="link-summary" href="#" target="_blank" class="action-button link-button">🔗 원문 보기</a>
+                        <button class="action-button close-button" onclick="window.close()">창 닫기</button>
+                    </div>
+                </div>
+
+                <div id="tab-translation" class="tab-content" style="display: none;">
+                    <div id="translation-text" class="translation-text"></div>
+                    <div class="action-footer">
+                         <a id="link-translation" href="#" target="_blank" class="action-button link-button">🔗 원문 보기</a>
+                        <button class="action-button close-button" onclick="window.close()">창 닫기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+    // 탭 전환 스크립트
+    function showTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
+        document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
+        
+        document.getElementById('tab-' + tabName).style.display = 'block';
+        document.getElementById('btn-' + tabName).classList.add('active');
+    }
+
+    // 시간 계산 유틸리티
+    function getTimeAgo(publishedAt) {
+        const now = new Date();
+        const published = new Date(publishedAt);
+        if (isNaN(published.getTime())) return "";
+        const diffMinutes = Math.floor((now - published) / 60000);
+        if (diffMinutes < 60) return `${diffMinutes}분 전`;
+        return `${Math.floor(diffMinutes / 60)}시간 전`;
+    }
+
+    // 페이지 로드 시 데이터 렌더링
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const articleId = urlParams.get('id');
+
+        if (!articleId) {
+            document.getElementById('loading').textContent = '오류: 기사 ID를 찾을 수 없습니다.';
+            return;
+        }
+
+        // !! 중요: sessionStorage는 테스트용입니다.
+        // 실제 서비스에서는 articleId를 사용해 서버 API로 기사 데이터를 요청해야 합니다.
+        const articleDataString = sessionStorage.getItem(articleId);
+
+        if (!articleDataString) {
+             document.getElementById('loading').textContent = '오류: 기사 데이터를 불러올 수 없습니다. 메인 페이지에서 다시 시도해주세요.';
+             return;
+        }
+
+        const article = JSON.parse(articleDataString);
+
+        // 로딩 숨기고 콘텐츠 보이기
+        document.getElementById('loading').style.display = 'none';
+        document.querySelector('.article-content').classList.remove('hidden');
+        
+        // 데이터 바인딩
+        document.title = `${article.titleKo} - EmarkNews`;
+        document.getElementById('article-title').textContent = article.titleKo;
+        
+        const timeAgo = getTimeAgo(article.publishedAt);
+        document.getElementById('source-time').innerHTML = `
+            <span class="source">${article.source}</span>
+            <span>· ${timeAgo}</span>
+        `;
+        
+        document.getElementById('rating-badge').innerHTML = `
+            <span class="rating-star">⭐</span>${(article.rating || 0).toFixed(1)}
+        `;
+
+        // 상세 요약 렌더링
+        const summaryHtml = (article.fullSummaryPoints || article.summaryPoints).map(point =>
+            `<div class="summary-point">
+                <span class="summary-bullet">•</span>
+                <span class="summary-text">${point}</span>
+            </div>`
+        ).join('');
+        document.getElementById('summary-content').innerHTML = summaryHtml;
+
+        // 원문 번역 렌더링 (실제 번역 내용 또는 원문 사용)
+        const translationContent = article.content || article.description || "번역된 내용이 없습니다.";
+        document.getElementById('translation-text').textContent = translationContent;
+
+        // 원문 링크 설정
+        const sourceUrl = article.url || "#";
+        document.getElementById('link-summary').href = sourceUrl;
+        document.getElementById('link-translation').href = sourceUrl;
+    });
+</script>
+</body>
+</html>

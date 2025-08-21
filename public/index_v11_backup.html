@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmarkNews - AI 실시간 뉴스</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0.8rem 0;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+            position: relative;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .logo-image {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            display: flex;
+            align-items: baseline;
+            gap: 0.2rem;
+        }
+
+        .logo-text {
+            color: #333;
+        }
+
+        .logo-com {
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .header-controls {
+            position: absolute;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.3rem;
+        }
+
+        #currency-display {
+            background: rgba(248, 249, 250, 0.95);
+            padding: 0.3rem 0.8rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.65rem;
+            text-align: right;
+            line-height: 1.4;
+            border: 1px solid #e9ecef;
+            min-width: 90px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .currency-item {
+            margin-bottom: 0.1rem;
+            white-space: nowrap;
+        }
+
+        .currency-up { color: #dc3545; }
+        .currency-down { color: #007bff; }
+        .currency-neutral { color: #333; }
+
+        .nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 0.4rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 76px;
+            z-index: 999;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.3rem;
+            padding: 0 1rem;
+        }
+
+        .nav-item {
+            background: transparent;
+            border: 1px solid #e0e0e0;
+            padding: 0.4rem 0.5rem;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            font-size: 0.75rem;
+            text-align: center;
+        }
+
+        .nav-item:hover {
+            border-color: #667eea;
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-color: transparent;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .main {
+            max-width: 1200px;
+            margin: 0.5rem auto;
+            padding: 0 1rem;
+            position: relative;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 3rem;
+            color: white;
+            font-size: 1.1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .news-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 1.5rem;
+        }
+
+        .news-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 45px rgba(0,0,0,0.15);
+        }
+
+        .news-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .news-source-time {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .news-source {
+            color: #667eea;
+        }
+
+        .time-ago {
+            color: #999;
+            font-weight: 400;
+        }
+
+        .rating-tag-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .news-tags {
+            display: flex;
+            gap: 0.3rem;
+            flex-wrap: wrap;
+        }
+
+        .rating-badge {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 0.3rem 0.7rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: 2px solid #ffd700;
+        }
+
+        .tag {
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            padding: 0.3rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            border: 1px solid #ddd;
+        }
+
+        .tag.urgent { background: #ff4757; color: white; border: none; }
+        .tag.important { background: #ff6b35; color: white; border: none; }
+        .tag.hot { background: #ff3838; color: white; border: none; }
+        .tag.buzz { background: #9c88ff; color: white; border: none; }
+        .tag.tech { background: #2196F3; color: white; border: none; }
+        .tag.economy { background: #4CAF50; color: white; border: none; }
+        .tag.viral { background: #FF5722; color: white; border: none; }
+
+        .news-title {
+            margin-bottom: 1rem;
+        }
+
+        .news-title-original {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .news-title-translated {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.4;
+            margin-bottom: 1.2rem;
+        }
+
+        .ai-summary-main {
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-point {
+            margin-bottom: 0.7rem;
+            padding-left: 1.2rem;
+            position: relative;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .summary-point::before {
+            content: "•";
+            position: absolute;
+            left: 0.3rem;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .news-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .sub-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .sub-action {
+            padding: 0.6rem;
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .sub-action:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .actions-hidden {
+            display: none !important;
+        }
+
+        .content-section {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 1rem;
+        }
+
+        .content-section.expanded {
+            max-height: 2000px;
+            padding-top: 1rem;
+        }
+
+        .expanded-image {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .ai-detailed-summary {
+            background: #f8f9ff;
+            padding: 1.2rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .ai-detailed-summary h4 {
+            color: #667eea;
+            margin-bottom: 0.8rem;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ai-detailed-summary .summary-text {
+            line-height: 1.8;
+            text-align: justify;
+            text-indent: 1.5em;
+            color: #444;
+            font-size: 0.95rem;
+        }
+
+        .original-translation {
+            background: #fff8e1;
+            padding: 1.2rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            border-left: 4px solid #ffc107;
+        }
+
+        .original-translation h4 {
+            color: #f57c00;
+            margin-bottom: 0.8rem;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .original-translation .translation-text {
+            line-height: 1.8;
+            text-align: justify;
+            color: #444;
+            font-size: 0.95rem;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .section-btn {
+            padding: 0.8rem 2rem;
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 140px;
+        }
+
+        .section-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .section-btn.primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            min-width: 120px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 1rem;
+            }
+
+            .logo-image {
+                width: 180px;
+                height: 45px;
+            }
+
+            .header-controls {
+                right: 1rem;
+                position: fixed;
+                z-index: 1001;
+            }
+
+            #currency-display {
+                font-size: 0.6rem;
+                min-width: 75px;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .auto-update-indicator {
+                font-size: 0.6rem;
+            }
+
+            .nav-container {
+                padding: 0 0.5rem;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.3rem;
+            }
+
+            .main {
+                padding: 0;
+                margin: 0;
+                max-width: 100%;
+            }
+
+            /* 모바일 카드뉴스 스타일 - 고정 위치 */
+            .news-grid {
+                position: fixed;
+                top: 200px; /* 네비게이션 바로 아래 고정 */
+                left: 0;
+                right: 0;
+                bottom: 0;
+                padding: 1rem;
+                overflow: hidden;
+                display: block;
+                scroll-snap-type: y mandatory;
+                overflow-y: auto;
+            }
+
+            .news-item {
+                position: absolute;
+                top: 0;
+                left: 1rem;
+                right: 1rem;
+                height: calc(100vh - 280px); /* 하단 여백 80px 추가 */
+                padding: 1.5rem;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 20px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                display: none; /* 기본적으로 숨김 */
+                overflow-y: auto;
+                scroll-snap-align: start;
+            }
+
+            .news-item.active {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+            }
+
+            .news-header {
+                margin-bottom: 1rem;
+                flex-shrink: 0;
+            }
+
+            .news-source-time {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.3rem;
+            }
+
+            .news-source {
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: #667eea;
+                background: rgba(102, 126, 234, 0.1);
+                padding: 0.4rem 0.8rem;
+                border-radius: 15px;
+                display: inline-block;
+            }
+
+            .news-title-translated {
+                font-size: 1.3rem;
+                font-weight: bold;
+                line-height: 1.4;
+                color: #333;
+                margin-bottom: 1rem;
+            }
+
+            .ai-summary-main {
+                flex: 1;
+                overflow-y: auto;
+                margin-bottom: 1rem;
+            }
+
+            .summary-point {
+                font-size: 1rem;
+                line-height: 1.6;
+                color: #555;
+                margin-bottom: 0.8rem;
+            }
+
+            .news-tags {
+                margin-bottom: 1rem;
+                flex-shrink: 0;
+            }
+
+            .rating-badge {
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: #ff6b35;
+                background: rgba(255, 107, 53, 0.1);
+                padding: 0.4rem 0.8rem;
+                border-radius: 15px;
+                display: inline-block;
+            }
+
+            .time-ago {
+                font-size: 0.8rem;
+                color: #888;
+            }
+
+            .news-actions {
+                flex-direction: column;
+                flex-shrink: 0;
+            }
+
+            .sub-actions {
+                grid-template-columns: 1fr;
+                gap: 0.3rem;
+            }
+
+            .section-actions {
+                flex-direction: column;
+                gap: 0.3rem;
+            }
+
+            /* 더보기 버튼 모바일에서 숨김 */
+            #load-more-container {
+                display: none !important;
+            }
+
+            /* 스크롤 네비게이션 화살표 */
+            .mobile-nav-arrows {
+                position: fixed;
+                right: 1rem;
+                bottom: 5rem; /* 하단에서 5rem 위로 이동 */
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                z-index: 1000;
+            }
+
+            .mobile-nav-arrow {
+                width: 40px;
+                height: 40px;
+                background: rgba(102, 126, 234, 0.8);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 1.2rem;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(10px);
+            }
+
+            .mobile-nav-arrow:hover {
+                background: rgba(102, 126, 234, 1);
+                transform: scale(1.1);
+            }
+
+            .mobile-nav-arrow:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+            }
+
+            /* 카운터 표시 */
+            .mobile-counter {
+                position: fixed;
+                bottom: 1.5rem; /* 하단에서 1.5rem 위 */
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                z-index: 1000;
+                backdrop-filter: blur(10px);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-controls {
+                right: 0.5rem;
+            }
+
+            #currency-display {
+                font-size: 0.55rem;
+                min-width: 70px;
+                padding: 0.2rem 0.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <div class="logo-image" onclick="newsApp.scrollToTop()" style="cursor: pointer;">
+                    <span class="logo-text">EmarkNews</span>
+                    <span class="logo-com">.com</span>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div id="currency-display">환율 로딩중...</div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <div class="nav-container">
+            <button class="nav-item active" data-section="world">🌍 세계</button>
+            <button class="nav-item" data-section="kr">🇰🇷 한국</button>
+            <button class="nav-item" data-section="japan">🇯🇵 일본</button>
+            <button class="nav-item" data-section="tech">💡 테크</button>
+            
+            <button class="nav-item" data-section="business">💼 BIZ</button>
+            <button class="nav-item" data-section="buzz">🔥 Buzz</button>
+            <div></div>
+            <div></div>
+        </div>
+    </nav>
+    
+    <main class="main">
+        <div id="loading">AI가 뉴스를 분석중입니다...</div>
+        <div id="news-grid" class="news-grid"></div>
+        
+        <!-- 더보기 버튼 -->
+        <div id="load-more-container" style="display: none; text-align: center; margin: 2rem 0;">
+            <button id="load-more-btn" style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                padding: 1rem 2rem;
+                border-radius: 25px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            ">
+                더보기 (21개 추가)
+            </button>
+        </div>
+        
+        <!-- 모바일 네비게이션 화살표 -->
+        <div id="mobile-nav-arrows" class="mobile-nav-arrows" style="display: none;">
+            <button id="mobile-prev-btn" class="mobile-nav-arrow">↑</button>
+            <button id="mobile-next-btn" class="mobile-nav-arrow">↓</button>
+        </div>
+        
+        <!-- 모바일 카운터 -->
+        <div id="mobile-counter" class="mobile-counter" style="display: none;">
+            1 / 1
+        </div>
+    </main>
+    
+    <footer class="footer">
+    </footer>
+
+    <script>
+        console.log('🚀 EmarkNews v7.1 Starting...');
+
+        class EmarkNews {
+            constructor() {
+                this.currentSection = 'world';
+                this.currentFilter = 'all';
+                this.allArticles = new Map();
+                this.newsCache = new Map();
+                this.updateInterval = null;
+                this.nextUpdateCountdown = 600;
+                
+                // 더보기 버튼 시스템
+                this.displayedArticles = new Map(); // 각 섹션별 현재 표시된 기사 수
+                this.articlesPerPage = 21; // 페이지당 기사 수
+                this.isLoadingMore = false; // 추가 로딩 중인지 확인
+                
+                // 모바일 카드뉴스 시스템
+                this.isMobileView = false;
+                this.currentMobileIndex = 0; // 현재 표시 중인 기사 인덱스
+                this.mobileArticles = []; // 모바일에서 표시할 기사 배열
+                
+                this.init();
+            }
+
+            init() {
+                this.checkMobileView();
+                this.loadCurrency();
+                this.loadNews();
+                this.setupNavigation();
+                this.setupLoadMore(); // 더보기 버튼 설정
+                this.setupMobileNavigation(); // 모바일 네비게이션 설정
+                this.startAutoUpdate();
+                
+                // 윈도우 리사이즈 시 모바일 뷰 체크
+                window.addEventListener('resize', () => {
+                    this.checkMobileView();
+                    this.updateMobileDisplay();
+                });
+                
+                // 모바일에서 스와이프 이벤트 추가
+                this.setupMobileSwipe();
+            }
+
+            async loadCurrency() {
+                try {
+                    const prevRates = this.prevRates || {};
+                    const mockRates = {
+                        USD: (1200 + Math.random() * 100).toFixed(0),
+                        JPY: (921 + Math.random() * 20).toFixed(0),
+                        EUR: (1300 + Math.random() * 50).toFixed(0)
+                    };
+                    
+                    let display = '';
+                    Object.entries(mockRates).forEach(([currency, rate]) => {
+                        const prevRate = prevRates[currency];
+                        let colorClass = 'currency-neutral';
+                        
+                        if (prevRate) {
+                            if (rate > prevRate) colorClass = 'currency-up';
+                            else if (rate < prevRate) colorClass = 'currency-down';
+                        }
+                        
+                        display += `<div class="currency-item ${colorClass}">${currency} ${rate}원</div>`;
+                    });
+                    
+                    document.getElementById('currency-display').innerHTML = display;
+                    this.prevRates = mockRates;
+                    
+                    setTimeout(() => this.loadCurrency(), 30000);
+                } catch (error) {
+                    console.error('Failed to load currency:', error);
+                    document.getElementById('currency-display').innerHTML = '<div class="currency-neutral">환율 정보 없음</div>';
+                }
+            }
+
+            getTimeAgo(publishedAt) {
+                const now = new Date();
+                const published = new Date(publishedAt);
+                const diffMs = now - published;
+                
+                const diffSeconds = Math.floor(diffMs / 1000);
+                const diffMinutes = Math.floor(diffSeconds / 60);
+                const diffHours = Math.floor(diffMinutes / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                
+                if (diffDays > 0) return `${diffDays}일 전`;
+                if (diffHours > 0) return `${diffHours}시간 전`;
+                if (diffMinutes > 0) return `${diffMinutes}분 전`;
+                return `${diffSeconds}초 전`;
+            }
+
+            generateTags(tags) {
+                if (!tags || tags.length === 0) return '';
+                
+                return tags.map(tag => {
+                    let className = 'tag';
+                    if (tag === '긴급') className += ' urgent';
+                    else if (tag === '중요') className += ' important';
+                    else if (tag === 'Hot') className += ' hot';
+                    else if (tag === 'Buzz') className += ' buzz';
+                    else if (tag === '테크') className += ' tech';
+                    else if (tag === '경제') className += ' economy';
+                    else if (tag === '바이럴') className += ' viral';
+                    
+                    return `<span class="${className}">${tag}</span>`;
+                }).join('');
+            }
+
+            formatSummaryPoints(summaryPoints) {
+                if (!summaryPoints || summaryPoints.length === 0) {
+                    return '<div class="summary-point">AI 요약 정보가 없습니다.</div>';
+                }
+                
+                return summaryPoints.slice(0, 3).map(point => 
+                    `<div class="summary-point">${point}</div>`
+                ).join('');
+            }
+
+            applyFilter(articles, filter) {
+                if (!articles) return [];
+                
+                switch(filter) {
+                    case 'urgent':
+                        return articles.filter(a => a.tags && a.tags.includes('긴급'));
+                    case 'important':
+                        return articles.filter(a => a.tags && a.tags.includes('중요'));
+                    case 'hot':
+                        return articles.filter(a => a.tags && a.tags.includes('Hot'));
+                    case 'rating5':
+                        return articles.filter(a => (a.rating || 0) >= 4.5);
+                    case 'rating4':
+                        return articles.filter(a => (a.rating || 0) >= 4.0);
+                    case 'all':
+                    default:
+                        return articles;
+                }
+            }
+
+            async loadNews(section = null, loadMore = false) {
+                try {
+                    if (section === null) section = this.currentSection;
+                    
+                    console.log('Loading news for section:', section, 'loadMore:', loadMore);
+                    
+                    // 섹션이 변경되었을 때 이전 섹션 캐시 클리어 (BBC 혼재 방지)
+                    if (section !== this.currentSection && !loadMore) {
+                        console.log('🧹 Clearing cache for section change:', this.currentSection, '→', section);
+                        this.allArticles.clear(); // 모든 캐시 클리어
+                        this.displayedArticles.clear(); // 표시된 기사 수 초기화
+                    }
+                    
+                    this.currentSection = section;
+                    
+                    if (section === 'youtube') {
+                        // 유튜브 섹션 제거됨
+                        document.getElementById('loading').style.display = 'none';
+                        return;
+                    }
+                    
+                    if (!loadMore) {
+                        document.getElementById('loading').style.display = 'block';
+                        document.getElementById('news-grid').style.display = 'none';
+                        this.displayedArticles.set(section, 0); // 표시된 기사 수 초기화
+                    }
+                    
+                    // 실제 API에서 데이터 가져오기
+                    let articles;
+                    if (this.allArticles.has(section) && !loadMore) {
+                        articles = this.allArticles.get(section);
+                    } else {
+                        // 실제 API 호출
+                        const sectionMap = {
+                            'world': 'world',
+                            'kr': 'kr',
+                            'japan': 'japan',
+                            'tech': 'tech',
+                            'business': 'business',
+                            'buzz': 'buzz'
+                        };
+                        
+                        const apiSection = sectionMap[section] || section;
+                        
+                        // 더보기 시스템: 충분한 기사를 가져오기 위해 큰 limit 사용
+                        let limit = 50; // 충분한 기사 확보
+                        
+                        console.log(`🌐 API 호출: /api/news/${apiSection}?limit=${limit}`);
+                        
+                        const response = await fetch(`/api/news/${apiSection}?limit=${limit}`);
+                        if (!response.ok) {
+                            throw new Error(`API Error: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        console.log('📊 API 응답:', data);
+                        
+                        if (data.success && data.data && data.data.articles) {
+                            articles = data.data.articles;
+                            this.allArticles.set(section, articles);
+                        } else {
+                            throw new Error('Invalid API response format');
+                        }
+                    }
+                    
+                    console.log('Articles loaded:', articles.length);
+                    
+                    // 뉴스 표시 (더보기 시스템 적용)
+                    this.displayNews(articles, loadMore);
+                    
+                    // 로딩 숨기고 그리드 표시
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('news-grid').style.display = 'grid';
+                    
+                    // 더보기 버튼 표시/숨김 처리
+                    this.updateLoadMoreButton(section, articles.length);
+                    
+                } catch (error) {
+                    console.error('Failed to load news:', error);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('news-grid').style.display = 'block';
+                    document.getElementById('news-grid').innerHTML = '<p style="text-align: center; color: white; padding: 2rem;">뉴스 로딩 중 오류가 발생했습니다.</p>';
+                }
+            }
+
+            async generateMockNews(section) {
+                // 더미 데이터 사용 안함 - 실제 API만 사용
+                return [];
+            }
+            displayNews(articles, loadMore = false) {
+                const newsGrid = document.getElementById('news-grid');
+                if (!newsGrid) return;
+
+                const filteredArticles = this.applyFilter(articles, this.currentFilter);
+                
+                if (this.isMobileView) {
+                    // 모바일: 카드뉴스 스타일
+                    this.mobileArticles = filteredArticles;
+                    this.currentMobileIndex = 0;
+                    this.displayMobileCard();
+                    this.updateMobileControls();
+                } else {
+                    // 데스크톱: 기존 그리드 스타일
+                    this.displayDesktopGrid(filteredArticles, loadMore);
+                }
+            }
+
+            displayMobileCard() {
+                const newsGrid = document.getElementById('news-grid');
+                if (!newsGrid || this.mobileArticles.length === 0) return;
+
+                const article = this.mobileArticles[this.currentMobileIndex];
+                if (!article) return;
+
+                const articleId = `article-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const displayTitle = article.titleKo || article.title || '제목 없음';
+                const timeAgo = this.getTimeAgo(article.publishedAt);
+
+                newsGrid.innerHTML = `
+                    <article class="news-item active" data-article-id="${articleId}">
+                        <div class="news-header">
+                            <div class="news-source-time">
+                                <span class="news-source">${article.source || '알 수 없는 소스'}</span>
+                                <span class="time-ago">${timeAgo}</span>
+                            </div>
+                            <div class="rating-tag-group">
+                                ${article.rating ? `<div class="rating-badge">⭐ ${article.rating.toFixed(1)}</div>` : ''}
+                                <div class="news-tags">${this.generateTags(article.tags)}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="news-title">
+                            <div class="news-title-translated">${displayTitle}</div>
+                        </div>
+                        
+                        <div class="ai-summary-main">
+                            ${this.formatSummaryPoints(article.summaryPoints)}
+                        </div>
+                        
+                        <div class="news-actions" id="actions-${articleId}">
+                            <div class="sub-actions">
+                                <button class="sub-action" onclick="newsApp.toggleSection('${articleId}', 'summary')">
+                                    🔍 AI상세요약 보기
+                                </button>
+                                <button class="sub-action" onclick="newsApp.toggleSection('${articleId}', 'translation')">
+                                    🌐 원문 번역 보기
+                                </button>
+                                <button class="sub-action" onclick="window.open('${article.url || '#'}', '_blank')">
+                                    🔗 원문 바로가기
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="content-section" id="summary-${articleId}">
+                            <div class="ai-detailed-summary">
+                                <h4>🔍 AI 상세요약</h4>
+                                ${article.urlToImage ? `<img src="${article.urlToImage}" alt="${displayTitle}" class="expanded-image" onerror="this.style.display='none'">` : ''}
+                                <div class="summary-text">${article.aiDetailedSummary || '상세 요약 정보가 없습니다.'}</div>
+                            </div>
+                            
+                            <div class="section-actions">
+                                <button class="section-btn" onclick="newsApp.toggleSection('${articleId}', 'translation')">
+                                    🌐 원문 번역 보기
+                                </button>
+                                <button class="section-btn" onclick="window.open('${article.url || '#'}', '_blank')">
+                                    🔗 원문 바로가기
+                                </button>
+                                <button class="section-btn primary" onclick="newsApp.toggleSection('${articleId}', 'summary')">
+                                    닫기
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="content-section" id="translation-${articleId}">
+                            <div class="original-translation">
+                                <h4>🌐 원문 번역보기</h4>
+                                ${article.urlToImage ? `<img src="${article.urlToImage}" alt="${displayTitle}" class="expanded-image" onerror="this.style.display='none'">` : ''}
+                                <div class="translation-text">${article.originalTextKo || article.originalText || '번역 정보가 없습니다.'}</div>
+                            </div>
+                            
+                            <div class="section-actions">
+                                <button class="section-btn" onclick="newsApp.toggleSection('${articleId}', 'summary')">
+                                    🔍 AI상세요약 보기
+                                </button>
+                                <button class="section-btn" onclick="window.open('${article.url || '#'}', '_blank')">
+                                    🔗 원문 바로가기
+                                </button>
+                                <button class="section-btn primary" onclick="newsApp.toggleSection('${articleId}', 'translation')">
+                                    닫기
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }
+
+            displayDesktopGrid(articles, loadMore = false) {
+                const newsGrid = document.getElementById('news-grid');
+                const currentDisplayed = this.displayedArticles.get(this.currentSection) || 0;
+                
+                let articlesToShow;
+                if (loadMore) {
+                    const startIndex = currentDisplayed;
+                    const endIndex = Math.min(startIndex + this.articlesPerPage, articles.length);
+                    articlesToShow = articles.slice(0, endIndex);
+                    this.displayedArticles.set(this.currentSection, endIndex);
+                } else {
+                    articlesToShow = articles.slice(0, this.articlesPerPage);
+                    this.displayedArticles.set(this.currentSection, Math.min(this.articlesPerPage, articles.length));
+                }
+
+                const newsHtml = articlesToShow.map((article, index) => {
+                    const articleId = `article-${Date.now()}-${index}`;
+                    const displayTitle = article.titleKo || article.title || '제목 없음';
+                    const timeAgo = this.getTimeAgo(article.publishedAt);
+
+                    return `
+                        <article class="news-item" data-article-id="${articleId}">
+                            <div class="news-header">
+                                <div class="news-source-time">
+                                    <span class="news-source">${article.source || '알 수 없는 소스'}</span>
+                                    <span class="time-ago">${timeAgo}</span>
+                                </div>
+                                <div class="rating-tag-group">
+                                    ${article.rating ? `<div class="rating-badge">⭐ ${article.rating.toFixed(1)}</div>` : ''}
+                                    <div class="news-tags">${this.generateTags(article.tags)}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="news-title">
+                                <div class="news-title-translated">${displayTitle}</div>
+                            </div>
+                            
+                            <div class="ai-summary-main">
+                                ${this.formatSummaryPoints(article.summaryPoints)}
+                            </div>
+                            
+                            <div class="news-actions" id="actions-${articleId}">
+                                <div class="sub-actions">
+                                    <button class="sub-action" onclick="newsApp.toggleSection('${articleId}', 'summary')">
+                                        🔍 AI상세요약 보기
+                                    </button>
+                                    <button class="sub-action" onclick="newsApp.toggleSection('${articleId}', 'translation')">
+                                        🌐 원문 번역 보기
+                                    </button>
+                                    <button class="sub-action" onclick="window.open('${article.url || '#'}', '_blank')">
+                                        🔗 원문 바로가기
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="content-section" id="summary-${articleId}">
+                                <div class="ai-detailed-summary">
+                                    <h4>🔍 AI 상세요약</h4>
+                                    ${article.urlToImage ? `<img src="${article.urlToImage}" alt="${displayTitle}" class="expanded-image" onerror="this.style.display='none'">` : ''}
+                                    <div class="summary-text">${article.aiDetailedSummary || '상세 요약 정보가 없습니다.'}</div>
+                                </div>
+                                
+                                <div class="section-actions">
+                                    <button class="section-btn" onclick="newsApp.toggleSection('${articleId}', 'translation')">
+                                        🌐 원문 번역 보기
+                                    </button>
+                                    <button class="section-btn" onclick="window.open('${article.url || '#'}', '_blank')">
+                                        🔗 원문 바로가기
+                                    </button>
+                                    <button class="section-btn primary" onclick="newsApp.toggleSection('${articleId}', 'summary')">
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="content-section" id="translation-${articleId}">
+                                <div class="original-translation">
+                                    <h4>🌐 원문 번역보기</h4>
+                                    ${article.urlToImage ? `<img src="${article.urlToImage}" alt="${displayTitle}" class="expanded-image" onerror="this.style.display='none'">` : ''}
+                                    <div class="translation-text">${article.originalTextKo || article.originalText || '번역 정보가 없습니다.'}</div>
+                                </div>
+                                
+                                <div class="section-actions">
+                                    <button class="section-btn" onclick="newsApp.toggleSection('${articleId}', 'summary')">
+                                        🔍 AI상세요약 보기
+                                    </button>
+                                    <button class="section-btn" onclick="window.open('${article.url || '#'}', '_blank')">
+                                        🔗 원문 바로가기
+                                    </button>
+                                    <button class="section-btn primary" onclick="newsApp.toggleSection('${articleId}', 'translation')">
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+
+                if (loadMore) {
+                    newsGrid.innerHTML += newsHtml;
+                } else {
+                    newsGrid.innerHTML = newsHtml;
+                }
+                
+                console.log('News displayed successfully');
+            }
+
+            toggleSection(articleId, sectionType) {
+                const sectionId = `${sectionType}-${articleId}`;
+                const section = document.getElementById(sectionId);
+                const actionsDiv = document.getElementById(`actions-${articleId}`);
+                
+                const allSections = document.querySelectorAll(`[data-article-id="${articleId}"] .content-section`);
+                allSections.forEach(s => {
+                    if (s.id !== sectionId) {
+                        s.classList.remove('expanded');
+                    }
+                });
+                
+                if (section) {
+                    const isExpanded = section.classList.contains('expanded');
+                    section.classList.toggle('expanded');
+                    
+                    if (actionsDiv) {
+                        if (!isExpanded) {
+                            actionsDiv.classList.add('actions-hidden');
+                        } else {
+                            actionsDiv.classList.remove('actions-hidden');
+                        }
+                    }
+                }
+            }
+
+            setupNavigation() {
+                console.log('🔧 setupNavigation 시작');
+                
+                // 모든 네비게이션 버튼에 이벤트 리스너 추가
+                const navButtons = document.querySelectorAll('.nav-item');
+                console.log('📊 네비게이션 버튼 개수:', navButtons.length);
+                
+                navButtons.forEach((btn, index) => {
+                    const section = btn.dataset.section;
+                    console.log(`🔗 버튼 ${index + 1}: ${btn.textContent} (section: ${section})`);
+                    
+                    // 기존 이벤트 리스너 제거
+                    btn.removeEventListener('click', this.handleNavClick);
+                    
+                    // 새 이벤트 리스너 추가
+                    btn.addEventListener('click', (e) => {
+                        console.log(`🖱️ 클릭됨: ${e.target.textContent} (section: ${e.target.dataset.section})`);
+                        
+                        // 모든 버튼에서 active 클래스 제거
+                        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+                        
+                        // 클릭된 버튼에 active 클래스 추가
+                        e.target.classList.add('active');
+                        
+                        // 필터 초기화
+                        this.currentFilter = 'all';
+                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        const allFilterBtn = document.querySelector('.filter-btn[data-filter="all"]');
+                        if (allFilterBtn) allFilterBtn.classList.add('active');
+                        
+                        // 뉴스 로딩
+                        const targetSection = e.target.dataset.section;
+                        console.log(`📰 뉴스 로딩 시작: ${targetSection}`);
+                        this.loadNews(targetSection, 'all');
+                    });
+                });
+                
+                console.log('✅ setupNavigation 완료');
+            }
+
+            setupFilters() {
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.loadNews(this.currentSection, e.target.dataset.filter);
+                    });
+                });
+            }
+
+            setupLoadMore() {
+                const loadMoreBtn = document.getElementById('load-more-btn');
+                if (loadMoreBtn) {
+                    loadMoreBtn.addEventListener('click', () => {
+                        if (!this.isLoadingMore) {
+                            this.isLoadingMore = true;
+                            loadMoreBtn.textContent = '로딩 중...';
+                            loadMoreBtn.disabled = true;
+                            
+                            this.loadNews(this.currentSection, true).finally(() => {
+                                this.isLoadingMore = false;
+                                loadMoreBtn.disabled = false;
+                                
+                                // 모바일과 데스크톱에서 다른 텍스트 복원
+                                if (this.isMobileView) {
+                                    loadMoreBtn.textContent = '다음 뉴스 (1개)';
+                                } else {
+                                    loadMoreBtn.textContent = '더보기 (21개 추가)';
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+
+            updateLoadMoreButton(section, totalArticles) {
+                const loadMoreContainer = document.getElementById('load-more-container');
+                const loadMoreBtn = document.getElementById('load-more-btn');
+                const currentDisplayed = this.displayedArticles.get(section) || 0;
+                
+                // 세계섹션에서만 더보기 버튼 표시
+                if (section === 'world' && currentDisplayed < totalArticles) {
+                    loadMoreContainer.style.display = 'block';
+                    
+                    // 모바일과 데스크톱에서 다른 텍스트 표시
+                    if (this.isMobileView) {
+                        loadMoreBtn.textContent = '다음 뉴스 (1개)';
+                    } else {
+                        loadMoreBtn.textContent = '더보기 (21개 추가)';
+                    }
+                } else {
+                    loadMoreContainer.style.display = 'none';
+                }
+            }
+
+            startAutoUpdate() {
+                this.updateInterval = setInterval(() => {
+                    console.log('Auto-updating news...');
+                    this.loadNews(this.currentSection);
+                }, 600000); // 10분마다 업데이트
+            }
+
+            // 모바일 관련 메서드들
+            checkMobileView() {
+                this.isMobileView = window.innerWidth <= 768 && 'ontouchstart' in window;
+                console.log('📱 Mobile view:', this.isMobileView);
+                this.updateMobileDisplay();
+            }
+
+            updateMobileDisplay() {
+                const mobileArrows = document.getElementById('mobile-nav-arrows');
+                const mobileCounter = document.getElementById('mobile-counter');
+                
+                if (this.isMobileView) {
+                    if (mobileArrows) mobileArrows.style.display = 'flex';
+                    if (mobileCounter) mobileCounter.style.display = 'block';
+                } else {
+                    if (mobileArrows) mobileArrows.style.display = 'none';
+                    if (mobileCounter) mobileCounter.style.display = 'none';
+                }
+            }
+
+            setupMobileNavigation() {
+                const prevBtn = document.getElementById('mobile-prev-btn');
+                const nextBtn = document.getElementById('mobile-next-btn');
+                
+                if (prevBtn) {
+                    prevBtn.addEventListener('click', () => this.navigateMobile('prev'));
+                }
+                
+                if (nextBtn) {
+                    nextBtn.addEventListener('click', () => this.navigateMobile('next'));
+                }
+            }
+
+            setupMobileSwipe() {
+                let startY = 0;
+                let startTime = 0;
+                
+                document.addEventListener('touchstart', (e) => {
+                    if (!this.isMobileView) return;
+                    startY = e.touches[0].clientY;
+                    startTime = Date.now();
+                }, { passive: true });
+                
+                document.addEventListener('touchend', (e) => {
+                    if (!this.isMobileView) return;
+                    
+                    const endY = e.changedTouches[0].clientY;
+                    const endTime = Date.now();
+                    const deltaY = startY - endY;
+                    const deltaTime = endTime - startTime;
+                    
+                    // 스와이프 조건: 50px 이상, 500ms 이내
+                    if (Math.abs(deltaY) > 50 && deltaTime < 500) {
+                        if (deltaY > 0) {
+                            // 위로 스와이프 = 다음 기사
+                            this.navigateMobile('next');
+                        } else {
+                            // 아래로 스와이프 = 이전 기사
+                            this.navigateMobile('prev');
+                        }
+                    }
+                }, { passive: true });
+            }
+
+            navigateMobile(direction) {
+                if (!this.isMobileView || this.mobileArticles.length === 0) return;
+                
+                if (direction === 'next') {
+                    this.currentMobileIndex = (this.currentMobileIndex + 1) % this.mobileArticles.length;
+                } else if (direction === 'prev') {
+                    this.currentMobileIndex = this.currentMobileIndex === 0 
+                        ? this.mobileArticles.length - 1 
+                        : this.currentMobileIndex - 1;
+                }
+                
+                this.displayMobileCard();
+                this.updateMobileControls();
+            }
+
+            updateMobileControls() {
+                const prevBtn = document.getElementById('mobile-prev-btn');
+                const nextBtn = document.getElementById('mobile-next-btn');
+                const counter = document.getElementById('mobile-counter');
+                
+                if (this.mobileArticles.length === 0) return;
+                
+                // 카운터 업데이트
+                if (counter) {
+                    counter.textContent = `${this.currentMobileIndex + 1} / ${this.mobileArticles.length}`;
+                }
+                
+                // 버튼 상태 업데이트 (순환 네비게이션이므로 항상 활성화)
+                if (prevBtn) prevBtn.disabled = false;
+                if (nextBtn) nextBtn.disabled = false;
+            }
+
+            scrollToTop() {
+                if (this.isMobileView) {
+                    // 모바일: 첫 번째 뉴스 카드로 부드럽게 스크롤
+                    const firstNewsItem = document.querySelector('.news-item');
+                    if (firstNewsItem) {
+                        firstNewsItem.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                        
+                        // 스크롤 힌트 표시
+                        this.showMobileScrollHint();
+                        
+                        console.log('📱 첫 번째 뉴스 카드로 이동');
+                    }
+                } else {
+                    // 데스크톱: 페이지 맨 위로 스크롤
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                    
+                    console.log('🖥️ 페이지 맨 위로 이동');
+                }
+            }
+        }
+
+        // 전역 변수로 설정
+        const newsApp = new EmarkNews();
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('EmarkNews v7.1 initialized successfully! 🚀');
+            
+            // 전역 newsApp 설정
+            window.newsApp = newsApp;
+            
+            // 네비게이션 설정
+            newsApp.setupNavigation();
+            console.log('✅ 네비게이션 설정 완료');
+            
+            // 초기 뉴스 로딩
+            console.log('🔄 초기 뉴스 로딩 시작...');
+            try {
+                await newsApp.loadNews('world');
+                console.log('✅ 초기 뉴스 로딩 완료');
+            } catch (error) {
+                console.error('❌ 초기 뉴스 로딩 실패:', error);
+            }
+        });
+    </script>
+</body>
+</html>
