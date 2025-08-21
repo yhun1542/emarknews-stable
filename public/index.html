@@ -432,37 +432,6 @@
             min-width: 120px;
         }
 
-        .youtube-section {
-            margin-top: 3rem;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-        }
-
-        .youtube-section h3 {
-            text-align: center;
-            margin-bottom: 2rem;
-            color: #333;
-        }
-
-        .youtube-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-
-        .youtube-embed {
-            aspect-ratio: 16/9;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .youtube-embed iframe {
-            width: 100%;
-            height: 100%;
-        }
-
         .footer {
             text-align: center;
             padding: 2rem;
@@ -664,7 +633,7 @@
             
             <button class="nav-item" data-section="business">💼 BIZ</button>
             <button class="nav-item" data-section="buzz">🔥 Buzz</button>
-            <button class="nav-item" data-section="youtube">📺 유튜브</button>
+            <div></div>
             <div></div>
         </div>
     </nav>
@@ -852,11 +821,9 @@
                     this.currentSection = section;
                     
                     if (section === 'youtube') {
-                        this.showYouTubeSection();
+                        // 유튜브 섹션 제거됨
                         document.getElementById('loading').style.display = 'none';
                         return;
-                    } else {
-                        this.hideYouTubeSection();
                     }
                     
                     if (!loadMore) {
@@ -1079,55 +1046,6 @@
                         }
                     }
                 }
-            }
-
-            showYouTubeSection() {
-                const newsGrid = document.getElementById('news-grid');
-                const youtubeSection = document.getElementById('youtube-section');
-                
-                newsGrid.style.display = 'none';
-                youtubeSection.style.display = 'block';
-                
-                this.loadYouTubeVideos();
-            }
-
-            hideYouTubeSection() {
-                const newsGrid = document.getElementById('news-grid');
-                const youtubeSection = document.getElementById('youtube-section');
-                
-                if (newsGrid) {
-                    newsGrid.style.display = 'grid';
-                }
-                if (youtubeSection) {
-                    youtubeSection.style.display = 'none';
-                }
-            }
-
-            loadYouTubeVideos() {
-                const youtubeGrid = document.getElementById('youtube-grid');
-                
-                const videos = [
-                    { id: 'tgbNymZ7vqY', title: 'BBC News - Global Headlines', channel: 'BBC News' },
-                    { id: 'hFZFjoX2cGg', title: 'CNN International - Breaking News', channel: 'CNN' },
-                    { id: 'C_VheAwZBuQ', title: 'Reuters - World Update', channel: 'Reuters' },
-                    { id: 'aiHOLIAqBLs', title: 'KBS 뉴스 - 오늘의 주요 뉴스', channel: 'KBS News' }
-                ];
-                
-                youtubeGrid.innerHTML = videos.map(video => `
-                    <div class="youtube-embed">
-                        <iframe 
-                            src="https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1" 
-                            title="${video.title}"
-                            frameborder="0" 
-                            allowfullscreen
-                            loading="lazy">
-                        </iframe>
-                        <div style="padding: 0.5rem; font-size: 0.8rem; color: #666;">
-                            <strong>${video.channel}</strong><br>
-                            ${video.title}
-                        </div>
-                    </div>
-                `).join('');
             }
 
             setupNavigation() {
