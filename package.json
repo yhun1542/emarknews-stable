@@ -7,6 +7,8 @@
   "scripts": {
     "deps:heal": "bash heal-and-ci.sh",
     "clean:install": "rm -rf node_modules package-lock.json && npm i && npm ci",
+    "check:lock": "bash check-lock.sh",
+    "fix:lock": "AUTO_FIX_LOCK=1 bash check-lock.sh",
     "build": "node -e \"console.log('No build step required')\"",
     "start": "node app.js",
     "dev": "nodemon app.js",
