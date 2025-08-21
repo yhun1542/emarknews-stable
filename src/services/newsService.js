@@ -291,121 +291,68 @@ class NewsService {
             "bbc.com","cnn.com","nytimes.com","washingtonpost.com","theguardian.com",
             "aljazeera.com","dw.com","spiegel.de","lemonde.fr","elpais.com","scmp.com",
             // 한국 메이저(영문 포함)
-            "yna.co.kr","koreaherald.com","koreatimes.co.kr"
+            "yna.co.kr","koreaherald.com","koreatimes.co.kr","chosun.com","joins.com","hankyung.com",
+            // 일본 메이저(영문 포함)
+            "japantimes.co.jp","asahi.com","yomiuri.co.jp","nikkei.com","kyodonews.net",
+            // 테크 메이저
+            "techcrunch.com","theverge.com","wired.com","arstechnica.com","engadget.com",
+            "zdnet.com","venturebeat.com","thenextweb.com","androidauthority.com","9to5mac.com",
+            // 비즈니스 메이저
+            "cnbc.com","marketwatch.com","businessinsider.com","fortune.com","forbes.com"
         ];
         
-        const DOMAIN_BLACKLIST = ["news.google.com","news.yahoo.com","flipboard.com"];
-        
-        // 섹션별 키워드가 있으면 사용, 없으면 기본 키워드 사용
-        const HOT_QUERIES = sectionKeywords || [
-            // 지정학/분쟁/선거
-            "war OR conflict","Ukraine OR Gaza OR Middle East","election OR parliament",
-            "sanctions OR ceasefire","NATO OR UN Security Council",
-            // 거시/시장
-            "Federal Reserve OR interest rates OR inflation","oil prices OR OPEC","stock market OR selloff",
-            "GDP OR recession","FX OR currency crisis",
-            // 테크/산업
-            "AI OR artificial intelligence OR semiconductor","data center OR cloud","electric vehicle OR battery",
-            "chip export controls OR sanctions tech",
-            // 보건/재난
-            "outbreak OR pandemic OR WHO","earthquake OR typhoon OR wildfire OR heatwave",
-            // 기업 이슈
-            "recall OR antitrust OR lawsuit OR settlement","earnings OR guidance",
-            // 동아시아(영문권 보도)
-            "Korea OR Japan OR China summit","North Korea OR missile"
-        ];
-
-        // 섹션별 가중치가 있으면 사용, 없으면 기본 가중치 사용
-        const SOURCE_WEIGHTS = sectionWeights || {
-            "reuters.com":5,"apnews.com":5,"afp.com":4,"bloomberg.com":5,"wsj.com":5,"ft.com":5,"economist.com":5,
-            "bbc.com":4,"cnn.com":3,"nytimes.com":5,"washingtonpost.com":4,"theguardian.com":4,
-            "aljazeera.com":4,"dw.com":3,"spiegel.de":3,"lemonde.fr":4,"elpais.com":3,"scmp.com":4,
-            "yna.co.kr":4,"koreaherald.com":3,"koreatimes.co.kr":3
-        };
-
         try {
-            const allArticles = [];
-            const fromTime = new Date(Date.now() - HOURS_WINDOW * 60 * 60 * 1000).toISOString();
-            const toTime = new Date().toISOString();
+            // 1. 최신 뉴스 검색 (everything API)
+            const fromDate = new Date();
+            fromDate.setHours(fromDate.getHours() - HOURS_WINDOW);
+            const fromDateStr = fromDate.toISOString().split('T')[0];
             
-            // 다단계 수집 전략 (확장)
-            const phases = [
-                { queries: HOT_QUERIES.slice(0, 8), sortBy: "publishedAt", pages: 2 },  // 최신순으로 핫한 키워드 (페이지 2개)
-                { queries: HOT_QUERIES.slice(8, 16), sortBy: "relevancy", pages: 2 },  // 관련성순으로 다른 키워드 (페이지 2개)
-                { queries: HOT_QUERIES.slice(0, 8), sortBy: "popularity", pages: 1 },  // 인기순으로 핫한 키워드 재수집
-                { queries: ["breaking news", "latest news", "world news"], sortBy: "publishedAt", pages: 3 } // 일반 뉴스 키워드
-            ];
-
-            for (const phase of phases) {
-                if (allArticles.length >= TARGET_RESULTS) break;
-
-                const promises = [];
+            // 2. 키워드 쿼리 구성 (섹션별 특화)
+            let queryParts = [];
+            
+            // 섹션별 키워드 추가
+            if (sectionKeywords && sectionKeywords.length > 0) {
+                // 섹션 키워드 중 랜덤하게 2-3개 선택
+                const selectedKeywords = sectionKeywords
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, Math.min(3, sectionKeywords.length));
                 
-                for (const query of phase.queries) {
-                    for (let page = 1; page <= (phase.pages || 1); page++) {
-                        promises.push((async () => {
-                            try {
-                                // /v2/everything 엔드포인트 사용 (더 많은 기사 확보)
-                                const response = await this.newsApi.get('everything', {
-                                    params: {
-                                        q: query,
-                                        language: language,
-                                        from: fromTime,
-                                        to: toTime,
-                                        sortBy: phase.sortBy,
-                                        pageSize: PAGE_SIZE,
-                                        page: page,
-                                        searchIn: "title,description,content",
-                                        domains: DOMAIN_WHITELIST.join(","),
-                                        excludeDomains: DOMAIN_BLACKLIST.join(",")
-                                    }
-                                });
-
-                                return response.data.articles.map(item => ({
-                                    ...this.normalizeArticle(item, 'NewsAPI', language),
-                                    _query: query,
-                                    _sortBy: phase.sortBy,
-                                    _page: page,
-                                    _sourceScore: this.calculateNewsAPIScore(item, SOURCE_WEIGHTS)
-                                }));
-                            } catch (error) {
-                                logger.warn(`NewsAPI failed for query "${query}" page ${page}: ${error.message}`);
-                                return [];
-                            }
-                        })());
-                    }
-                }
-
-                const results = await Promise.allSettled(promises);
-                results.forEach(result => {
-                    if (result.status === 'fulfilled') {
-                        allArticles.push(...result.value);
-                    }
-                });
-
-                // 단계별로 잠시 대기 (API 제한 고려)
-                await new Promise(resolve => setTimeout(resolve, 100));
+                queryParts.push(`(${selectedKeywords.join(' OR ')})`);
             }
-
-            // 중복 제거 (URL + 제목 기반)
-            const uniqueArticles = this.deduplicateNewsAPIArticles(allArticles);
             
-            // 최신성 필터 (24시간 이내로 완화)
-            const recentArticles = this.filterRecentArticles(uniqueArticles, 24);
+            // 3. 도메인 필터링
+            const domains = DOMAIN_WHITELIST.join(',');
             
-            // 클러스터링 (유사한 제목 군집화)
-            const clusteredArticles = this.clusterSimilarArticles(recentArticles);
+            // 4. API 호출 파라미터 구성
+            const apiParams = {
+                ...params,
+                pageSize: PAGE_SIZE,
+                page: 1,
+                from: fromDateStr,
+                domains: domains,
+                language: language,
+                sortBy: 'publishedAt'
+            };
             
-            // 스코어 기반 정렬 및 상위 60개 선택
-            const topArticles = clusteredArticles
-                .sort((a, b) => (b._sourceScore || 0) - (a._sourceScore || 0))
-                .slice(0, TARGET_RESULTS);
-
-            logger.info(`NewsAPI World: collected ${allArticles.length}, unique ${uniqueArticles.length}, recent ${recentArticles.length}, clustered ${clusteredArticles.length}, top ${topArticles.length}`);
-            return topArticles;
-
+            // 키워드 쿼리가 있으면 추가
+            if (queryParts.length > 0) {
+                apiParams.q = queryParts.join(' AND ');
+            }
+            
+            // 5. API 호출
+            const response = await this.newsApi.get('everything', { params: apiParams });
+            
+            if (!response.data || !response.data.articles) {
+                return [];
+            }
+            
+            // 6. 응답 정규화
+            return response.data.articles
+                .map(article => this.normalizeArticle(article, 'NEWS_API', language))
+                .filter(Boolean);
+                
         } catch (error) {
-            logger.error(`NewsAPI fetch failed: ${error.message}`);
+            logger.warn(`NewsAPI fetch failed: ${error.message}`);
             return [];
         }
     }
@@ -414,590 +361,146 @@ class NewsService {
         if (!GNEWS_API_KEY) return [];
         
         try {
-            const TARGET_RESULTS = 50;
-            const HOURS_WINDOW = 12;
-            const allArticles = [];
+            // 1. 기본 파라미터 설정
+            const apiParams = {
+                ...params,
+                apikey: GNEWS_API_KEY,
+                max: 50
+            };
             
-            // 섹션별 키워드가 있으면 사용, 없으면 기본 키워드 사용
-            const HOT_QUERIES = sectionKeywords || [
-                "war OR conflict","Ukraine OR Gaza OR Middle East","election OR parliament",
-                "sanctions OR ceasefire","NATO OR UN Security Council",
-                "Federal Reserve OR interest rates OR inflation","oil prices OR OPEC","stock market OR selloff",
-                "GDP OR recession","FX OR currency crisis",
-                "AI OR artificial intelligence OR semiconductor","data center OR cloud","electric vehicle OR battery",
-                "outbreak OR pandemic OR WHO","earthquake OR typhoon OR wildfire OR heatwave",
-                "recall OR antitrust OR lawsuit OR settlement","earnings OR guidance",
-                "Korea OR Japan OR China summit","North Korea OR missile"
-            ];
-            
-            const fromTime = new Date(Date.now() - HOURS_WINDOW * 60 * 60 * 1000).toISOString();
-            const toTime = new Date().toISOString();
-            
-            // Phase 1: GNews Top Headlines (World)
-            try {
-                const response = await this.gnewsApi.get('top-headlines', {
-                    params: {
-                        category: params.category || 'world',
-                        lang: params.lang || 'en',
-                        max: 50,
-                        apikey: GNEWS_API_KEY
-                    }
-                });
+            // 2. 키워드 쿼리 구성 (섹션별 특화)
+            if (sectionKeywords && sectionKeywords.length > 0) {
+                // 섹션 키워드 중 랜덤하게 1-2개 선택
+                const selectedKeywords = sectionKeywords
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, Math.min(2, sectionKeywords.length));
                 
-                if (response.data.articles) {
-                    allArticles.push(...response.data.articles.map(item => ({
-                        ...this.normalizeGNewsArticle(item),
-                        _meta: { src: 'gnews-top', category: params.category }
-                    })));
-                }
-            } catch (error) {
-                logger.warn(`GNews top-headlines failed: ${error.message}`);
-            }
-            
-            // Phase 2: GNews Search with hot queries (if not enough articles)
-            if (allArticles.length < TARGET_RESULTS) {
-                for (const query of HOT_QUERIES.slice(0, 8)) {
-                    try {
-                        const response = await this.gnewsApi.get('search', {
-                            params: {
-                                q: query,
-                                lang: params.lang || 'en',
-                                from: fromTime,
-                                to: toTime,
-                                sortby: 'publishedAt',
-                                in: 'title,description',
-                                max: 25,
-                                apikey: GNEWS_API_KEY
-                            }
-                        });
-                        
-                        if (response.data.articles) {
-                            allArticles.push(...response.data.articles.map(item => ({
-                                ...this.normalizeGNewsArticle(item),
-                                _meta: { src: 'gnews-search', query: query }
-                            })));
-                        }
-                        
-                        // Rate limiting
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        
-                        if (allArticles.length >= TARGET_RESULTS) break;
-                        
-                    } catch (error) {
-                        logger.warn(`GNews search failed for query "${query}": ${error.message}`);
-                        // Rate limit 에러 시 더 긴 대기
-                        if (error.response?.status === 429) {
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                        }
-                    }
+                if (selectedKeywords.length > 0) {
+                    apiParams.q = selectedKeywords.join(' OR ');
                 }
             }
             
-            // 중복 제거 및 스코어링
-            const uniqueArticles = this.deduplicateGNewsArticles(allArticles);
-            const scoredArticles = uniqueArticles.map(article => ({
-                ...article,
-                _sourceScore: this.calculateGNewsScore(article)
-            }));
+            // 3. API 호출
+            const response = await this.gnewsApi.get('top-headlines', { params: apiParams });
             
-            // 고급 클러스터링 (첨부 파일 로직)
-            const clusteredArticles = this.clusterSimilarGNewsArticles(scoredArticles);
+            if (!response.data || !response.data.articles) {
+                return [];
+            }
             
-            // 상위 결과 반환
-            return clusteredArticles
-                .sort((a, b) => (b._sourceScore || 0) - (a._sourceScore || 0))
-                .slice(0, TARGET_RESULTS);
+            // 4. 응답 정규화
+            return response.data.articles
+                .map(article => this.normalizeArticle(article, 'GNEWS_API', params.lang || 'en'))
+                .filter(Boolean);
                 
         } catch (error) {
-            logger.error(`GNews API fetch failed: ${error.message}`);
+            logger.warn(`GNewsAPI fetch failed: ${error.message}`);
             return [];
         }
-    }
-
-    normalizeGNewsArticle(item) {
-        return {
-            title: item.title,
-            description: item.description,
-            content: item.description,
-            url: item.url,
-            urlToImage: item.image,
-            source: { name: item.source?.name || 'GNews', id: item.source?.id || '' },
-            publishedAt: item.publishedAt,
-            apiSource: 'GNews',
-            language: 'en'
-        };
-    }
-
-    calculateGNewsScore(article) {
-        const title = (article.title || '');
-        const description = (article.description || '');
-        const content = `${title} ${description}`.toLowerCase();
-        
-        // 소스 가중치 (첨부 파일 기반)
-        const SOURCE_WEIGHTS = {
-            "reuters.com":5,"apnews.com":5,"afp.com":4,"bloomberg.com":5,"wsj.com":5,"ft.com":5,"economist.com":5,
-            "bbc.com":4,"cnn.com":3,"nytimes.com":5,"washingtonpost.com":4,"theguardian.com":4,
-            "aljazeera.com":4,"dw.com":3,"spiegel.de":3,"lemonde.fr":4,"elpais.com":3,"scmp.com":4,
-            "yna.co.kr":4,"koreaherald.com":3,"koreatimes.co.kr":3
-        };
-        
-        let score = 0;
-        
-        // 소스 가중치
-        const host = this.getHost(article.url || '');
-        for (const [domain, weight] of Object.entries(SOURCE_WEIGHTS)) {
-            if (host.includes(domain)) {
-                score += weight;
-                break;
-            }
-        }
-        
-        // 영향도 키워드 (첨부 파일 기반)
-        const IMPACT_KEYWORDS = [
-            "war","conflict","sanction","missile","nuclear",
-            "inflation","rate hike","rate cut","gdp","recession","default","bankruptcy",
-            "ai","semiconductor","chip","export control","data center","battery","ev",
-            "earthquake","typhoon","wildfire","outbreak","pandemic","recall","antitrust","lawsuit","settlement",
-            "election","parliament","ceasefire","opec"
-        ];
-        
-        for (const keyword of IMPACT_KEYWORDS) {
-            if (content.includes(keyword)) {
-                score += 2;
-            }
-        }
-        
-        // 제목 길이 보너스
-        const titleLength = title.replace(/\s+/g, '').length;
-        if (titleLength >= 28 && titleLength <= 110) {
-            score += 1;
-        }
-        
-        // 최신성 보너스
-        if (article.publishedAt) {
-            const hoursAgo = Math.abs(new Date() - new Date(article.publishedAt)) / (1000 * 60 * 60);
-            if (hoursAgo <= 2) score += 2;
-            else if (hoursAgo <= 6) score += 1;
-        }
-        
-        return score;
-    }
-
-    deduplicateGNewsArticles(articles) {
-        const seen = new Set();
-        const unique = [];
-        
-        for (const article of articles) {
-            const key = (article.url || '') + '||' + (article.title || '');
-            if (!seen.has(key)) {
-                seen.add(key);
-                unique.push(article);
-            }
-        }
-        
-        return unique;
-    }
-
-    clusterSimilarGNewsArticles(articles) {
-        // Jaccard 유사도 기반 클러스터링 (첨부 파일 로직)
-        const clusters = [];
-        const SIMILARITY_THRESHOLD = 0.76;
-        
-        for (const article of articles) {
-            let placed = false;
-            
-            for (const cluster of clusters) {
-                if (this.calculateJaccardSimilarity(cluster.representative.title, article.title) >= SIMILARITY_THRESHOLD) {
-                    cluster.items.push(article);
-                    // 더 높은 스코어의 기사를 대표로 선택
-                    if ((article._sourceScore || 0) > (cluster.representative._sourceScore || 0)) {
-                        cluster.representative = article;
-                    }
-                    placed = true;
-                    break;
-                }
-            }
-            
-            if (!placed) {
-                clusters.push({
-                    representative: article,
-                    items: [article]
-                });
-            }
-        }
-        
-        // 각 클러스터의 대표 기사만 반환
-        return clusters.map(cluster => ({
-            ...cluster.representative,
-            _clusterSize: cluster.items.length
-        }));
-    }
-
-    calculateJaccardSimilarity(title1, title2) {
-        const tokenize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9가-힣\s]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
-        const tokens1 = new Set(tokenize(title1));
-        const tokens2 = new Set(tokenize(title2));
-        
-        const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
-        const union = new Set([...tokens1, ...tokens2]);
-        
-        return union.size ? intersection.size / union.size : 0;
-    }
-
-    calculateNewsAPIScore(item, sourceWeights) {
-        const title = (item.title || "");
-        const description = (item.description || "");
-        const url = item.url || "";
-        let score = 0;
-
-        // 출처별 가중치 적용
-        const host = this.getHost(url);
-        for (const [source, weight] of Object.entries(sourceWeights)) {
-            if (host.endsWith(source)) {
-                score += weight;
-                break;
-            }
-        }
-
-        // 영향력 키워드 보너스
-        const IMPACT_KEYWORDS = [
-            "war","conflict","sanction","missile","nuclear",
-            "inflation","rate hike","rate cut","gdp","recession","default","bankruptcy",
-            "ai","semiconductor","chip","export control","data center","battery","ev",
-            "earthquake","typhoon","wildfire","outbreak","pandemic","recall","antitrust","lawsuit","settlement",
-            "election","parliament"
-        ];
-
-        const content = (title + " " + description).toLowerCase();
-        for (const keyword of IMPACT_KEYWORDS) {
-            if (content.includes(keyword)) {
-                score += 2;
-            }
-        }
-
-        // 제목 길이 보너스 (적절한 길이)
-        const titleLength = title.replace(/\s+/g, "").length;
-        if (titleLength >= 30 && titleLength <= 110) {
-            score += 1;
-        }
-
-        // 최신성 보너스
-        if (item.publishedAt) {
-            const hoursAgo = Math.abs(new Date() - new Date(item.publishedAt)) / (1000 * 60 * 60);
-            if (hoursAgo <= 2) score += 2;
-            else if (hoursAgo <= 6) score += 1;
-        }
-
-        return score;
-    }
-
-    getHost(url) {
-        try {
-            return new URL(url).hostname.replace(/^www\./, "");
-        } catch {
-            return "";
-        }
-    }
-
-    deduplicateNewsAPIArticles(articles) {
-        const seen = new Set();
-        const unique = [];
-        
-        for (const article of articles) {
-            const key = (article.url || "") + "||" + (article.title || "");
-            if (!seen.has(key)) {
-                seen.add(key);
-                unique.push(article);
-            }
-        }
-        
-        return unique;
-    }
-
-    clusterSimilarArticles(articles) {
-        // 간단한 클러스터링: 제목 유사도 기반 (임계값 완화)
-        const clusters = [];
-        const SIMILARITY_THRESHOLD = 0.85; // 0.76 → 0.85로 완화 (더 적은 제거)
-        
-        for (const article of articles) {
-            let placed = false;
-            
-            for (const cluster of clusters) {
-                if (this.calculateTitleSimilarity(cluster.representative.title, article.title) >= SIMILARITY_THRESHOLD) {
-                    cluster.items.push(article);
-                    // 더 높은 스코어의 기사를 대표로 선택
-                    if ((article._sourceScore || 0) > (cluster.representative._sourceScore || 0)) {
-                        cluster.representative = article;
-                    }
-                    placed = true;
-                    break;
-                }
-            }
-            
-            if (!placed) {
-                clusters.push({
-                    representative: article,
-                    items: [article]
-                });
-            }
-        }
-        
-        // 각 클러스터의 대표 기사만 반환
-        return clusters.map(cluster => ({
-            ...cluster.representative,
-            _clusterSize: cluster.items.length
-        }));
-    }
-
-    calculateTitleSimilarity(title1, title2) {
-        const tokenize = (s) => (s || "").toLowerCase().replace(/[^a-z0-9가-힣\s]/g, " ").split(/\s+/).filter(w => w.length >= 2);
-        const tokens1 = new Set(tokenize(title1));
-        const tokens2 = new Set(tokenize(title2));
-        
-        const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
-        const union = new Set([...tokens1, ...tokens2]);
-        
-        return union.size ? intersection.size / union.size : 0;
     }
 
     async fetchFromNaverAPI(query, display = 30) {
         if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) return [];
         
-        // 고급 키워드 세트 (첨부 파일 기반)
-        const KEYWORDS = [
-            // A. 속보·사건/사고
-            "속보","긴급","특보","브레이킹","사건","사고","중대사고","참사","경보",
-            // B. 보건·의학
-            "건강","의학","감염병","전염병","메르스","코로나","수족구","독감","백신","치료제","신약","임상",
-            // C. 정책·규제/국정
-            "국회","정부","대통령","총리","장관","법안","개정안","시행령","입법예고","규제","완화","총선","대선",
-            // D. 거시경제·시장
-            "금리","기준금리","환율","물가","인플레이션","디스인플레이션","경기","성장률","GDP","증시","코스피","코스닥",
-            // E. 금융리스크·기업
-            "부도","워크아웃","유동성","채권단","리콜","적자","실적","어닝","컨센서스","M&A","상장","상폐","공모",
-            // F. 산업·기술
-            "반도체","AI","클라우드","데이터센터","배터리","전기차","로봇","바이오","원전","스마트팩토리","양자","사이버보안",
-            // G. 외교·안보
-            "한미","한중","한일","북한","핵","미사일","제재","군사훈련","정전","휴전","국방","NATO",
-            // H. 사회·재난·기후
-            "지진","태풍","호우","폭염","한파","산불","홍수","가뭄","붕괴","정전","재난",
-            // I. 법원·사법
-            "대법원","헌재","검찰","수사","영장","구속","무죄","유죄","판결","소송","과징금",
-            // J. 교육·노동
-            "대입","수능","의대정원","교원","파업","노사","임단협","최저임금","근로시간",
-            // K. 부동산·인프라
-            "부동산","주택","분양","전매","청약","용적률","재건축","재개발","교통","GTX","SOC","철도",
-            // L. 에너지·환경
-            "유가","가스","전력","탄소중립","RE100","배출권","수소","암모니아","원유","셰일"
-        ];
-
-        // 출처 가중치
-        const SOURCE_WEIGHTS = {
-            "yna.co.kr": 5, "yonhapnews": 5, "reuters": 5, "bloomberg": 5, "wsj": 5, 
-            "apnews": 4, "afp": 4, "kbs": 4, "mbc": 4, "sbs": 4, "jtbc": 4, "ytn": 4,
-            "hankyung": 4, "mk.co.kr": 4, "edaily": 3, "sedaily": 3, "chosun": 3, 
-            "joongang": 3, "donga": 3
-        };
-
         try {
-            const allArticles = [];
-            const MAX_KEYWORDS = 20; // 성능을 위해 상위 20개 키워드만 사용
-            const selectedKeywords = KEYWORDS.slice(0, MAX_KEYWORDS);
-            
-            // 멀티 키워드로 병렬 수집
-            const promises = selectedKeywords.map(async (keyword) => {
-                try {
-                    const response = await this.naverApi.get('news.json', { 
-                        params: { 
-                            query: keyword, 
-                            display: Math.min(display, 100), // API 최대 100개
-                            sort: 'date' 
-                        } 
-                    });
-                    
-                    return response.data.items.map(item => ({
-                        ...this.normalizeArticle(item, 'NaverAPI', 'ko'),
-                        _keyword: keyword,
-                        _sourceScore: this.calculateSourceScore(item, SOURCE_WEIGHTS)
-                    }));
-                } catch (error) {
-                    logger.warn(`Naver API failed for keyword "${keyword}": ${error.message}`);
-                    return [];
-                }
+            // 1. API 호출
+            const response = await this.naverApi.get('news', { 
+                params: { 
+                    query, 
+                    display, 
+                    sort: 'date' 
+                } 
             });
-
-            const results = await Promise.allSettled(promises);
-            results.forEach(result => {
-                if (result.status === 'fulfilled') {
-                    allArticles.push(...result.value);
-                }
-            });
-
-            // 중복 제거 (URL + 제목 기반)
-            const uniqueArticles = this.deduplicateNaverArticles(allArticles);
             
-            // 최신성 필터 (RSS는 24시간, 네이버 API는 7일)
-            const recentArticles = this.filterRecentArticles(uniqueArticles, 24);
+            if (!response.data || !response.data.items) {
+                return [];
+            }
             
-            // 스코어 기반 정렬 및 상위 30개 선택
-            const topArticles = recentArticles
-                .sort((a, b) => (b._sourceScore || 0) - (a._sourceScore || 0))
-                .slice(0, 30);
-
-            logger.info(`Naver API: collected ${allArticles.length}, unique ${uniqueArticles.length}, recent ${recentArticles.length}, top ${topArticles.length}`);
-            return topArticles;
-
+            // 2. 응답 정규화
+            return response.data.items
+                .map(item => this.normalizeArticle(item, 'NAVER_API', 'ko'))
+                .filter(Boolean);
+                
         } catch (error) {
-            logger.error(`Naver API fetch failed: ${error.message}`);
+            logger.warn(`NaverAPI fetch failed: ${error.message}`);
             return [];
         }
     }
 
-    calculateSourceScore(item, sourceWeights) {
-        const title = (item.title || "").replace(/<[^>]+>/g, "");
-        const link = item.originallink || item.link || "";
-        let score = 0;
-
-        // 출처별 가중치 적용
-        for (const [source, weight] of Object.entries(sourceWeights)) {
-            if (link.includes(source) || title.toLowerCase().includes(source)) {
-                score += weight;
-            }
-        }
-
-        // 제목 길이 보너스 (적절한 길이)
-        const titleLength = title.replace(/\s+/g, "").length;
-        if (titleLength >= 20 && titleLength <= 60) {
-            score += 1;
-        }
-
-        // 물음표 과다 사용 패널티
-        const questionMarks = (title.match(/\?/g) || []).length;
-        if (questionMarks >= 2) {
-            score -= 2;
-        }
-
-        return score;
-    }
-
-    deduplicateNaverArticles(articles) {
-        const seen = new Set();
-        const unique = [];
-        
-        for (const article of articles) {
-            const key = (article.url || "") + "||" + (article.title || "").replace(/<[^>]+>/g, "");
-            if (!seen.has(key)) {
-                seen.add(key);
-                unique.push(article);
-            }
-        }
-        
-        return unique;
-    }
-
-    filterRecentArticles(articles, maxHours) {
-        const cutoffTime = new Date(Date.now() - maxHours * 60 * 60 * 1000);
-        
-        return articles.filter(article => {
-            if (!article.publishedAt) return false;
-            
-            let pubDate;
-            if (typeof article.publishedAt === 'string') {
-                // "2024.10.29" 형식 처리
-                if (article.publishedAt.includes('.')) {
-                    const parts = article.publishedAt.split('.');
-                    pubDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                } else {
-                    pubDate = new Date(article.publishedAt);
-                }
-            } else {
-                pubDate = new Date(article.publishedAt);
-            }
-            
-            return pubDate > cutoffTime;
-        });
-    }
-
     async fetchFromXAPI() {
         if (!X_BEARER_TOKEN) return [];
+        
         try {
-            const query = '(trending OR viral OR buzz) -is:retweet lang:en';
-            const response = await this.xApi.get('tweets/search/recent', {
-                params: {
-                    query: query,
-                    max_results: 30,
-                    'tweet.fields': 'created_at,text',
-                    'expansions': 'author_id',
-                    'user.fields': 'name,username,profile_image_url'
-                }
-            });
-            const users = response.data.includes?.users?.reduce((acc, user) => { acc[user.id] = user; return acc; }, {}) || {};
-            return response.data.data.map(item => this.normalizeArticle({ ...item, user: users[item.author_id] }, 'X_API', 'en'));
+            // 1. 트렌드 API 호출 (미구현)
+            // 현재 X API v2는 트렌드 엔드포인트를 제공하지 않음
+            // 대신 최신 인기 트윗을 가져오는 방식으로 대체
+            
+            // 2. 빈 배열 반환 (실제 구현 시 제거)
+            return [];
+            
         } catch (error) {
-            logger.error(`X API fetch failed: ${error.message}`);
+            logger.warn(`X API fetch failed: ${error.message}`);
             return [];
         }
     }
 
     async fetchFromRSS(sources) {
-        const rssPromises = sources.map(async (source) => {
-            try {
-                // User-Agent 랜덤화로 블로킹 우회 시도
-                this.parser.options.headers['User-Agent'] = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`; // 브라우저 흉내
-                const feed = await this.parser.parseURL(source.url);
-                
-                // 모든 아이템을 정규화한 후 최신성 필터 적용
-                const allItems = feed.items.map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
-                
-                // 최신 24시간 이내 기사만 필터링
-                const recentItems = this.filterRecentArticles(allItems, 24);
-                
-                // 최신 기사가 없으면 최근 3일 이내로 완화
-                if (recentItems.length === 0) {
-                    const relaxedItems = this.filterRecentArticles(allItems, 72);
-                    return relaxedItems.slice(0, 15);
-                }
-                
-                return recentItems.slice(0, 15);
-                
-            } catch (error) {
-                logger.warn(`RSS fetch failed from ${source.name}: ${error.message}. Trying fallback if available.`);
-                // Fallback: 대안 URL 시도 (e.g., Reuters 경우)
-                if (source.name === 'Reuters World') {
-                    try {
-                        const fallbackUrl = 'https://www.reuters.com/rssFeed/worldNews'; // 또 다른 대안
-                        const feed = await this.parser.parseURL(fallbackUrl);
-                        const allItems = feed.items.map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name));
-                        const recentItems = this.filterRecentArticles(allItems, 24);
-                        return recentItems.length > 0 ? recentItems.slice(0, 15) : this.filterRecentArticles(allItems, 72).slice(0, 15);
-                    } catch (fallbackError) {
-                        logger.error(`Fallback RSS failed for Reuters: ${fallbackError.message}`);
+        try {
+            // 1. 모든 RSS 소스에 대해 병렬 요청
+            const fetchPromises = sources.map(async source => {
+                try {
+                    const feed = await this.parser.parseURL(source.url);
+                    
+                    if (!feed || !feed.items) {
                         return [];
                     }
+                    
+                    // 2. 각 피드 항목 정규화
+                    return feed.items
+                        .slice(0, 30) // 최대 30개 항목만 사용
+                        .map(item => this.normalizeArticle(item, 'RSS', source.lang, source.name))
+                        .filter(Boolean);
+                        
+                } catch (error) {
+                    logger.warn(`RSS fetch failed for ${source.name}: ${error.message}`);
+                    return [];
                 }
-                return [];
-            }
-        });
-        const results = await Promise.allSettled(rssPromises); // Gemini 장점: 부분 실패 OK
-        return results
-            .filter(result => result.status === 'fulfilled')
-            .flatMap(result => result.value || []);
+            });
+            
+            // 3. 모든 결과 병합
+            const results = await Promise.allSettled(fetchPromises);
+            return results
+                .filter(result => result.status === 'fulfilled')
+                .flatMap(result => result.value);
+                
+        } catch (error) {
+            logger.warn(`RSS fetch failed: ${error.message}`);
+            return [];
+        }
     }
 
-    // Normalize (Gemini 장점)
-    normalizeArticle(item, apiSource, language, sourceName = null) {
-        let title, description, url, urlToImage, publishedAt, source;
+    // 정규화 함수 (Gemini 장점: 통합 정규화)
+    normalizeArticle(item, apiSource, language = 'en', sourceName = null) {
         try {
+            let title, description, url, urlToImage, publishedAt, source;
+            
             switch (apiSource) {
-                case 'NewsAPI':
+                case 'NEWS_API':
                     title = item.title;
-                    description = item.description || item.content || '';
+                    description = item.description || '';
                     url = item.url;
                     urlToImage = item.urlToImage;
-                    publishedAt = item.publishedAt || new Date().toISOString();
-                    source = item.source?.name || 'NewsAPI';
+                    publishedAt = item.publishedAt;
+                    source = item.source?.name || 'News API';
                     break;
-                case 'NaverAPI':
+                case 'GNEWS_API':
+                    title = item.title;
+                    description = item.description || '';
+                    url = item.url;
+                    urlToImage = item.image;
+                    publishedAt = item.publishedAt;
+                    source = item.source?.name || 'GNews';
+                    break;
+                case 'NAVER_API':
                     title = this.stripHtml(item.title);
                     description = this.stripHtml(item.description);
                     url = item.originallink || item.link;
@@ -1148,7 +651,7 @@ class NewsService {
             return { success: false, error: 'Failed to fetch article' };
         }
     }
-
 }
 
 module.exports = NewsService;
+
