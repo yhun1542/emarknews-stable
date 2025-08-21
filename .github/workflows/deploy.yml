@@ -1,0 +1,54 @@
+name: Deploy to Railway + Purge Cloudflare
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build (no-op) + Hash static
+        run: |
+          npm run build
+          npm run postbuild
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Railway Login
+        run: railway login --token "${{ secrets.RAILWAY_TOKEN }}"
+
+      - name: Railway Link
+        run: |
+          railway link --project "emarknews-stable"
+          railway link --service "web"
+
+      - name: Deploy to Railway
+        run: |
+          railway up --service web --detach
+
+      - name: Purge Cloudflare (HTML only)
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          DOMAIN: "emarknews.com"
+        run: |
+          URLS='["https://'${DOMAIN}'/","https://'${DOMAIN}'/index.html","https://'${DOMAIN}'/detail.html","https://'${DOMAIN}'/logo.svg"]'
+          curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"files\": ${URLS}}"
+

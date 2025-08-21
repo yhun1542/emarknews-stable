@@ -1,56 +1,12 @@
 // app.js (강화)
 const express = require('express');
 const cors = require('cors');
-const compression = require('compression');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const path = require('path');
 const NewsService = require('./src/services/newsService');
-
 const app = express();
 
-// 미들웨어 설정
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(compression());
-app.use(morgan('combined'));
 app.use(cors()); // CORS 활성화
 app.use(express.json());
-
-// API는 캐시 금지
-app.use("/api", (req, res, next) => {
-  res.setHeader("Cache-Control", "no-store");
-  next();
-});
-
-// 정적 파일 서빙 (캐시 헤더 포함)
-const staticDir = path.join(__dirname, 'public');
-app.use(
-  express.static(staticDir, {
-    setHeaders: (res, filePath) => {
-      if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?|mp4|webm)$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      } else if (/\.(html)$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "no-cache, must-revalidate");
-      }
-    },
-    extensions: ["html"]
-  })
-);
-
-// 개별 HTML 라우트는 재검증 헤더 보장
-const htmlFiles = ["/index.html", "/detail.html"];
-htmlFiles.forEach((p) => {
-  app.get(p, (req, res) => {
-    res.setHeader("Cache-Control", "no-cache, must-revalidate");
-    res.sendFile(path.join(staticDir, p));
-  });
-});
-
-// 루트 → index.html
-app.get("/", (req, res) => {
-  res.setHeader("Cache-Control", "no-cache, must-revalidate");
-  res.sendFile(path.join(staticDir, "index.html"));
-});
+app.use(express.static('public')); // 정적 파일 서빙
 
 const news = new NewsService();
 
