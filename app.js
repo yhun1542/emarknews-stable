@@ -98,6 +98,27 @@ app.get('/api/news/:section', async (req, res, next) => {
   }
 });
 
+// 상세 기사 조회 API 엔드포인트
+app.get('/api/article/:section/:id', async (req, res, next) => {
+  try {
+    const { section, id } = req.params;
+    const result = await news.getArticleById(section, id);
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(404).json({ 
+        success: false,
+        error: 'Article not found' 
+      });
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

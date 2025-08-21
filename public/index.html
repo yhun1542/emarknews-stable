@@ -803,11 +803,12 @@
                     throw new Error('기사 데이터를 찾을 수 없습니다.');
                 }
                 
-                // 기사 데이터를 sessionStorage에 저장 (detail.html에서 기대하는 키 형식으로)
-                sessionStorage.setItem(articleId, JSON.stringify(articleData));
+                // 기사 데이터를 sessionStorage에 저장 (섹션 정보를 포함한 고유 키 사용)
+                const storageKey = `article_${this.currentSection}_${articleId}`;
+                sessionStorage.setItem(storageKey, JSON.stringify(articleData));
                 
-                // detail.html로 이동 (ID 파라미터 포함)
-                window.open(`detail.html?id=${articleId}`, '_blank');
+                // detail.html로 이동 (섹션과 ID 파라미터 포함)
+                window.location.href = `detail.html?section=${this.currentSection}&id=${articleId}`;
             } catch (error) {
                 console.error('상세 페이지 열기 실패:', error);
                 // 실패 시 알림 표시

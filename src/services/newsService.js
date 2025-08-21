@@ -1102,6 +1102,44 @@ class NewsService {
         return `${diffDays}일 전`;
     }
 
+    // 특정 ID의 기사 조회
+    async getArticleById(section, id) {
+        try {
+            // 캐시에서 해당 섹션의 뉴스 데이터 가져오기
+            const cacheKey = `news_v3:${section}`;
+            const cached = await redis.get(cacheKey);
+            
+            if (cached) {
+                const parsedCache = JSON.parse(cached);
+                const articles = parsedCache.articles || [];
+                
+                // ID로 기사 찾기
+                const article = articles.find(article => article.id === id);
+                
+                if (article) {
+                    return { success: true, data: article };
+                }
+            }
+            
+            // 캐시에 없으면 새로 데이터 가져오기
+            const result = await this.getNews(section, false);
+            
+            if (result.success && result.data && result.data.articles) {
+                const article = result.data.articles.find(article => article.id === id);
+                
+                if (article) {
+                    return { success: true, data: article };
+                }
+            }
+            
+            // 기사를 찾지 못한 경우
+            return { success: false, error: 'Article not found' };
+        } catch (error) {
+            logger.error(`Error fetching article by ID: ${error.message}`);
+            return { success: false, error: 'Failed to fetch article' };
+        }
+    }
+
 }
 
 module.exports = NewsService;
