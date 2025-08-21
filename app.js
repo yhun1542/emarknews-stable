@@ -12,8 +12,12 @@ const news = new NewsService();
 
 app.get('/api/:section/fast', async (req, res, next) => {
   try {
-    const { page = 1, limit } = req.query;
-    res.json(await news.getSectionFast(req.params.section, +page, +limit));
+    const result = await news.getNews(req.params.section, true);
+    if (result.success) {
+      res.json(result.data);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch news' });
+    }
   } catch (e) {
     next(e);
   }
@@ -21,8 +25,12 @@ app.get('/api/:section/fast', async (req, res, next) => {
 
 app.get('/api/:section', async (req, res, next) => {
   try {
-    const { page = 1, limit } = req.query;
-    res.json(await news.getSectionFull(req.params.section, +page, +limit));
+    const result = await news.getNews(req.params.section, false);
+    if (result.success) {
+      res.json(result.data);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch news' });
+    }
   } catch (e) {
     next(e);
   }
