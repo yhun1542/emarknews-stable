@@ -6,6 +6,7 @@ const app = express();
 
 app.use(cors()); // CORS 활성화
 app.use(express.json());
+app.use(express.static('public')); // 정적 파일 서빙
 
 const news = new NewsService();
 
