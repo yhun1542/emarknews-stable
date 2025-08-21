@@ -41,7 +41,11 @@ app.get('/api/news/:section', async (req, res, next) => {
   try {
     const result = await news.getNews(req.params.section, true);
     if (result.success) {
-      res.json(result.data);
+      // 프론트엔드가 기대하는 형식으로 응답
+      res.json({
+        success: true,
+        data: result.data
+      });
     } else {
       res.status(500).json({ error: 'Failed to fetch news' });
     }
