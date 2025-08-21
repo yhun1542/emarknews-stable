@@ -51,6 +51,7 @@
             margin: 0 auto;
             display: flex;
             align-items: center;
+            justify-content: center;
             padding: 0 1rem;
             width: 100%;
         }
@@ -58,27 +59,27 @@
         .logo {
             display: flex;
             align-items: center;
-            gap: 0.8rem;
+            gap: 0.5rem;
             cursor: pointer;
         }
 
         /* 로고 SVG 스타일링 */
         .logo-svg {
-            width: 40px;
-            height: 40px;
+            width: 80px;
+            height: 80px;
             object-fit: contain;
         }
 
         .logo-text { 
-            font-size: 32px; 
+            font-size: 64px; 
             font-weight: 800; 
-            margin-right: 2px;
+            margin-right: 0px;
         }
         .logo-com { 
             color: var(--primary-color); 
-            font-size: 24px; 
+            font-size: 48px; 
             font-weight: 700; 
-            margin-left: 1px;
+            margin-left: 0px;
         }
 
 
@@ -444,7 +445,7 @@
 </nav>
 
 <main class="main">
-    <div id="loading">AI가 뉴스를 분석중입니다... (미리보기 모드)</div>
+    <div id="loading">뉴스를 불러오는 중입니다...</div>
     <div id="news-grid" class="news-grid" style="display: none;">
         <!-- 뉴스 아이템들이 여기에 렌더링됩니다 -->
     </div>
@@ -655,7 +656,7 @@
                 // 액션 버튼 HTML 생성
                 const actionsHtml = `
                     <div class="news-actions-wrapper">
-                        <button onclick="window.newsApp.openDetailPage('${article.id}')" class="view-details-btn" data-article='${JSON.stringify(article).replace(/'/g, "&#39;")}'>
+                        <button onclick="window.newsApp.openDetailPage('${article.id}')" class="view-details-btn">
                             ✨ 상세보기
                         </button>
                     </div>
@@ -772,18 +773,16 @@
         // 상세 페이지 열기 메서드
         openDetailPage(articleId) {
             try {
-                // 버튼에서 data-article 속성으로 기사 데이터 가져오기
-                const button = event.target;
-                const articleDataString = button.getAttribute('data-article');
+                // 현재 섹션의 기사 데이터에서 해당 ID 찾기
+                const articles = this.allArticles.get(this.currentSection) || [];
+                const articleData = articles.find(article => article.id === articleId);
                 
-                if (!articleDataString) {
+                if (!articleData) {
                     throw new Error('기사 데이터를 찾을 수 없습니다.');
                 }
                 
-                const articleData = JSON.parse(articleDataString);
-                
-                // 기사 데이터를 sessionStorage에 저장
-                sessionStorage.setItem(`article_${articleId}`, JSON.stringify(articleData));
+                // 기사 데이터를 sessionStorage에 저장 (detail.html에서 기대하는 키 형식으로)
+                sessionStorage.setItem(articleId, JSON.stringify(articleData));
                 
                 // detail.html로 이동 (ID 파라미터 포함)
                 window.open(`detail.html?id=${articleId}`, '_blank');
@@ -805,364 +804,4 @@
 </script>
 
 
-2. 상세보기 페이지 (v12 탭 및 닫기 버튼 적용)
-아래 코드를 detail_sample_v12.html로 저장하여 확인하세요.
 
-HTML
-
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>상세보기 - EmarkNews</title>
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-    <style>
-        :root {
-            --primary-color: #5a4fcf;
-            --primary-dark: #4338ca;
-            --background-color: #f8f9fa;
-            --surface-color: #ffffff;
-            --text-color: #1e293b;
-            --text-secondary: #64748b;
-            --text-content: #334155;
-            --border-color: #e2e8f0;
-        }
-        body {
-            font-family: 'Pretendard', sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-        }
-        .header {
-            background: var(--surface-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-        }
-        .header-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 0 1rem;
-            display: flex;
-            align-items: center;
-        }
-        
-        /* 헤더 로고 정렬 수정 */
-        .logo {
-            display: flex;
-            align-items: center; 
-            gap: 0.6rem;
-        }
-
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
-
-        .logo-text {
-            font-size: 22px;
-            font-weight: 800;
-        }
-        .logo-com {
-            color: var(--primary-color);
-            font-size: 16px;
-            font-weight: 700;
-            /* .com을 로고 텍스트 기준선에 맞춤 (미세 조정) */
-            position: relative;
-            top: 1px;
-        }
-
-        .content-container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-
-        .article-header {
-            background: var(--surface-color);
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 1.5rem;
-        }
-
-        .article-title {
-            font-size: 2rem;
-            font-weight: 800;
-            line-height: 1.3;
-            margin-bottom: 1.5rem;
-        }
-
-        .article-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-top: 1px solid var(--border-color);
-            padding-top: 1rem;
-        }
-
-        .source {
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-right: 0.5rem;
-        }
-
-         /* 평점 디자인 (메인과 통일) */
-        .rating-badge {
-            background: var(--primary-dark);
-            color: white;
-            padding: 0.3rem 0.7rem;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: 700;
-             display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .rating-star {
-             color: #FFD700;
-        }
-
-        /* 탭 인터페이스 스타일 */
-        .tabs-container {
-            background: var(--surface-color);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            padding: 2rem;
-        }
-
-        .tabs {
-            display: flex;
-            border-bottom: 2px solid var(--border-color);
-            margin-bottom: 1.5rem;
-        }
-
-        .tab-button {
-            padding: 0.8rem 1.5rem;
-            border: none;
-            background: none;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: -2px;
-        }
-
-        .tab-button.active {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--primary-color);
-        }
-
-        .tab-content {
-            /* 1페이지 분량 유지를 위한 스크롤 설정 */
-            max-height: 75vh;
-            overflow-y: auto;
-            padding-right: 1rem;
-        }
-
-        /* AI 요약 스타일 (내어쓰기 적용) */
-        .summary-point {
-            font-size: 1rem;
-            line-height: 1.8;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: flex-start;
-            color: var(--text-content);
-        }
-        
-        .summary-bullet {
-            color: var(--primary-color);
-            margin-right: 0.8rem;
-            flex-shrink: 0;
-            padding-top: 4px;
-        }
-
-        /* 번역 스타일 */
-        .translation-text {
-            font-size: 1rem;
-            line-height: 1.9;
-            color: var(--text-content);
-            white-space: pre-wrap;
-            background-color: #f8f9ff;
-            padding: 1.5rem;
-            border-radius: 8px;
-        }
-
-        /* 닫기 버튼 스타일 */
-        .action-footer {
-            margin-top: 2rem;
-            display: flex;
-            gap: 1rem;
-        }
-
-        .action-button {
-            display: block;
-            width: 100%;
-            padding: 0.8rem;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            text-decoration: none;
-        }
-
-        .close-button {
-            background-color: var(--border-color);
-            color: var(--text-color);
-        }
-
-        .link-button {
-            background: var(--primary-color);
-            color: white;
-        }
-
-
-        @media (max-width: 768px) {
-            .header-container {
-                padding: 0 1rem;
-            }
-             .logo-svg {
-                 width: 28px;
-                height: 28px;
-            }
-            .logo-text {
-                font-size: 20px;
-            }
-            .logo-com {
-                font-size: 14px;
-            }
-            .article-title {
-                font-size: 1.6rem;
-            }
-            .content-container {
-                margin: 1rem auto;
-            }
-            .tabs-container, .article-header {
-                padding: 1.5rem;
-                border-radius: 0;
-            }
-            .tab-button {
-                font-size: 1rem;
-                padding: 0.8rem 1rem;
-            }
-            .action-footer {
-                flex-direction: column;
-            }
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <div class="header-container">
-            <div class="logo">
-                <!-- 로고 SVG 삽입 -->
-```svg
-<svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="grad_detail" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5a4fcf" />
-      <stop offset="100%" stop-color="#7c73e6" />
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="16" fill="url(#grad_detail)"/>
-  <path d="M20 18 H44 V26 H28 V32 H42 V40 H28 V46 H44 V54 H20 Z" fill="white" transform="translate(0, -5)"/>
-</svg>
-        <span class="logo-text">EmarkNews</span><span class="logo-com">.com</span>
-        </div>
-        <!-- 피드로 돌아가기 삭제됨 -->
-    </div>
-</header>
-
-<main class="content-container">
-    
-    <!-- 기사 헤더 정보 -->
-    <header class="article-header">
-        <h1 class="article-title">[샘플] 테슬라, 휴머노이드 로봇 '옵티머스 젠2' 생산 라인 투입 계획 발표</h1>
-        <div class="article-meta">
-            <div class="source-time">
-                <span class="source">Reuters</span>
-                <span>· 25분 전</span>
-            </div>
-            <div class="rating-badge">
-                <span class="rating-star">⭐</span>4.8
-            </div>
-        </div>
-    </header>
-
-    <!-- 탭 인터페이스 컨테이너 -->
-    <div class="tabs-container">
-        <div class="tabs">
-            <button id="btn-summary" class="tab-button active" onclick="showTab('summary')">✨ AI 상세 요약</button>
-            <button id="btn-translation" class="tab-button" onclick="showTab('translation')">🌐 원문 번역</button>
-        </div>
-
-        <!-- AI 상세 요약 탭 콘텐츠 (기본 활성화) -->
-        <div id="tab-summary" class="tab-content">
-            <div class="summary-content">
-                <div class="summary-point">
-                    <span class="summary-bullet">•</span>
-                    <span class="summary-text">테슬라 CEO 일론 머스크는 최신 휴머노이드 로봇 '옵티머스 젠2'를 내년 말까지 자사 전기차 생산 라인에 투입할 계획이라고 밝혔습니다. 이는 자동화 기술의 중대한 도약으로 평가됩니다.</span>
-                </div>
-                <div class="summary-point">
-                    <span class="summary-bullet">•</span>
-                    <span class="summary-text">젠2는 이전 모델 대비 30% 빠른 이동 속도와 향상된 손가락 감지 능력을 갖추고 있어, 복잡한 조립 작업을 수행할 수 있습니다. 특히 배터리 팩 설치와 내부 인테리어 작업에 활용될 예정입니다.</span>
-                </div>
-                <div class="summary-point">
-                    <span class="summary-bullet">•</span>
-                    <span class="summary-text">전문가들은 옵티머스의 도입이 생산 효율성을 극대화할 수 있지만, 초기 도입 비용과 로봇의 안정성 확보가 성공의 관건이 될 것이라고 분석했습니다.</span>
-                </div>
-                <div class="summary-point">
-                    <span class="summary-bullet">•</span>
-                    <span class="summary-text">테슬라는 이번 도입을 통해 얻은 데이터를 기반으로 로봇 기술을 더욱 고도화하고, 향후 가정용 서비스 로봇 시장 진출도 모색할 계획입니다.</span>
-                </div>
-            </div>
-            
-            <!-- 하단 버튼 영역 -->
-            <div class="action-footer">
-                 <a href="https://www.reuters.com" target="_blank" class="action-button link-button">🔗 원문 보기</a>
-                <button class="action-button close-button" onclick="window.close()">창 닫기</button>
-            </div>
-        </div>
-
-        <!-- 원문 번역 탭 콘텐츠 (기본 비활성화) -->
-        <div id="tab-translation" class="tab-content" style="display: none;">
-            <div class="translation-text">
-(샌프란시스코) - 테슬라가 자동화 분야에서 또 다른 대담한 움직임을 보이고 있습니다. CEO 일론 머스크는 목요일, 회사의 최신 휴머노이드 로봇인 "옵티머스 젠2"가 내년 말까지 전기 자동차 생산 라인에서 작업하게 될 것이라고 발표했습니다.
-
-머스크는 투자자들과의 통화에서 "옵티머스는 우리가 제조를 생각하는 방식을 변화시킬 잠재력을 가지고 있습니다."라고 말했습니다. 12월에 처음 공개된 젠2 로봇은 이전 버전보다 30% 더 빠르게 걷고 무게도 10kg 줄었습니다. 가장 중요한 개선 사항은 새로운 촉각 감지 손으로, 섬세한 물체를 다룰 수 있게 해줍니다.
-
-(중략)
-
-업계 분석가들은 이 움직임에 대해 조심스럽게 낙관하고 있습니다. 가이드하우스 인사이트의 샘 아부엘사미드는 "휴머노이드 로봇을 대규모 제조 환경에 성공적으로 통합할 수 있다면 생산성에 엄청난 이점이 있을 수 있습니다."라고 말했습니다.
-
-             <!-- 하단 버튼 영역 -->
-            <div class="action-footer">
-                 <a href="https://www.reuters.com" target="_blank" class="action-button link-button">🔗 원문 보기</a>
-                <button class="action-button close-button" onclick="window.close()">창 닫기</button>
-            </div>
-        </div>
-    </div>
-
-</main>
-
-<script>
-    // 탭 전환 스크립트
-    function showTab(tabName) {
-        // 모든 콘텐츠 숨기기
-        document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
-        // 모든 버튼 비활성화
-        document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
-        
-        // 선택된 콘텐츠 보이기
-        document.getElementById('tab-' + tabName).style.display = 'block';
-        // 선택된 버튼 활성화
-        document.getElementById('btn-' + tabName).classList.add('active');
-    }
-</script>

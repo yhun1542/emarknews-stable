@@ -261,16 +261,7 @@
     <header class="header">
         <div class="header-container">
             <a href="index.html" class="logo">
-                <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="grad_detail" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#5a4fcf" />
-                      <stop offset="100%" stop-color="#7c73e6" />
-                    </linearGradient>
-                  </defs>
-                  <rect width="64" height="64" rx="16" fill="url(#grad_detail)"/>
-                  <path d="M20 18 H44 V26 H28 V32 H42 V40 H28 V46 H44 V54 H20 Z" fill="white" transform="translate(0, -5)"/>
-                </svg>
+                <img src="logo.e8649160.svg" alt="EmarkNews Logo" class="logo-svg" />
                 <span class="logo-text">EmarkNews</span><span class="logo-com">.com</span>
             </a>
         </div>
@@ -372,8 +363,9 @@
             <span class="rating-star">⭐</span>${(article.rating || 0).toFixed(1)}
         `;
 
-        // 상세 요약 렌더링
-        const summaryHtml = (article.fullSummaryPoints || article.summaryPoints).map(point =>
+        // 상세 요약 렌더링 (fullSummaryPoints 우선, 없으면 summaryPoints 사용)
+        const summaryPoints = article.fullSummaryPoints || article.summaryPoints || [];
+        const summaryHtml = summaryPoints.map(point =>
             `<div class="summary-point">
                 <span class="summary-bullet">•</span>
                 <span class="summary-text">${point}</span>
