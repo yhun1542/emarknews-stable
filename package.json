@@ -2,14 +2,14 @@
   "name": "emarknews-stable",
   "version": "1.0.0",
   "description": "EmarkNews Stable - AI-powered Real-time News Aggregator (Stable Version)",
-  "main": "src/app.js",
+  "main": "app.js",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "NODE_ENV=development node src/app.js",
+    "start": "node app.js",
+    "dev": "NODE_ENV=development node app.js",
     "test": "echo \"No tests yet\"",
     "build": "echo \"Build complete\""
   },
