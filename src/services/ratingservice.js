@@ -30,11 +30,6 @@ class RatingService {
       'meme', 'influencer', 'youtube', 'tiktok', 'instagram',
       '바이럴', '트렌드', '연예인', '엔터테인먼트', '소셜미디어', '인플루언서'
     ];
-
-    this.sportsKeywords = [
-      'sports', 'olympic', 'football', 'soccer', 'basketball', 'baseball',
-      '스포츠', '올림픽', '축구', '농구', '야구'
-    ];
   }
 
   async calculateRating(article) {
@@ -48,60 +43,26 @@ class RatingService {
       const descriptionLower = (article.description || '').toLowerCase();
       const combinedText = titleLower + ' ' + descriptionLower;
 
-      // Urgency factor (+2 for urgent)
+      // Urgency factor (+2)
       if (this.containsKeywords(combinedText, this.urgentKeywords)) {
         score += 2;
       }
 
-      // Importance factor (+1.5 for important)
+      // Importance factor (+1)
       if (this.containsKeywords(combinedText, this.importantKeywords)) {
-        score += 1.5;
-      }
-
-      // Buzz factor (+1 for buzz)
-      if (this.containsKeywords(combinedText, this.buzzKeywords)) {
         score += 1;
       }
 
-      // Lower weight for sports (-0.5)
-      if (this.containsKeywords(combinedText, this.sportsKeywords)) {
-        score -= 0.5;
-      }
-
-      // Weekday/Weekend adjustment
-      const now = new Date();
-      const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
-      if (isWeekday) {
-        // Weekday: boost business/important
-        if (this.containsKeywords(combinedText, this.businessKeywords) || 
-            this.containsKeywords(combinedText, this.importantKeywords)) {
-          score += 0.5;
-        }
-      } else {
-        // Weekend: boost buzz/entertainment
-        if (this.containsKeywords(combinedText, this.buzzKeywords)) {
-          score += 0.5;
-        }
-      }
-
-      // Recency bonus with emphasis on <48 hours, more for very recent, but capped
+      // Recency bonus (newer articles get higher scores)
       const publishedDate = new Date(article.publishedAt);
+      const now = new Date();
       const hoursAgo = (now - publishedDate) / (1000 * 60 * 60);
       
       if (hoursAgo < 1) {
-        score += 1.2; // Very recent boost
+        score += 1; // Very recent
       } else if (hoursAgo < 6) {
-        score += 0.8;
-      } else if (hoursAgo < 24) {
-        score += 0.6;
-      } else if (hoursAgo < 48) {
-        score += 0.4; // Within 48 hours
-      } else if (hoursAgo < 72) {
-        score += 0.2;
+        score += 0.5; // Recent
       }
-
-      // Cap recency bonus to prevent overshadowing important news
-      score = Math.min(score + 1.5, score); // Overall recency cap at +1.5 max
 
       // Source reliability factor
       const reliableSources = ['BBC', 'Reuters', 'AP News', 'CNN', '연합뉴스', 'KBS', 'MBC'];
@@ -117,7 +78,7 @@ class RatingService {
         score += 0.3; // Detailed description
       }
 
-      // Ensure score is within 1-5 range, rounded to nearest 0.5
+      // Ensure score is within 1-5 range
       score = Math.min(5, Math.max(1, Math.round(score * 2) / 2));
       
       return score;
@@ -131,7 +92,7 @@ class RatingService {
   async generateTags(article) {
     try {
       if (!article || !article.title) {
-        return [];
+        return ['일반'];
       }
 
       const tags = [];
@@ -139,40 +100,93 @@ class RatingService {
       const descriptionLower = (article.description || '').toLowerCase();
       const combinedText = titleLower + ' ' + descriptionLower;
 
-      // 1. 긴급 태그
+      // Urgency tags
       if (this.containsKeywords(combinedText, this.urgentKeywords)) {
         tags.push('긴급');
       }
 
-      // 2. 중요 태그
+      // Importance tags
       if (this.containsKeywords(combinedText, this.importantKeywords)) {
         tags.push('중요');
       }
 
-      // 3. Buzz 태그
-      if (this.containsKeywords(combinedText, this.buzzKeywords)) {
-        tags.push('Buzz');
+      // Category tags
+      if (this.containsKeywords(combinedText, this.techKeywords)) {
+        tags.push('테크');
       }
 
-      // 4. Hot 태그 (4.9점 이상)
-      const rating = await this.calculateRating(article);
-      if (rating >= 4.9) {
+      if (this.containsKeywords(combinedText, this.businessKeywords)) {
+        tags.push('경제');
+      }
+
+      if (this.containsKeywords(combinedText, this.buzzKeywords)) {
+        tags.push('바이럴');
+      }
+
+      // Recency tags
+      const publishedDate = new Date(article.publishedAt);
+      const now = new Date();
+      const hoursAgo = (now - publishedDate) / (1000 * 60 * 60);
+      
+      if (hoursAgo < 2) {
         tags.push('Hot');
       }
 
-      // 중복 제거 및 4개 제한 (우선순위: 긴급 > 중요 > Hot > Buzz)
-      const prioritizedTags = [];
-      ['긴급', '중요', 'Hot', 'Buzz'].forEach(priorityTag => {
-        if (tags.includes(priorityTag)) {
-          prioritizedTags.push(priorityTag);
-        }
-      });
+      // Geographic tags
+      if (this.containsKeywords(combinedText, ['korea', 'korean', '한국', '서울', 'seoul'])) {
+        tags.push('한국');
+      }
 
-      return [...new Set(prioritizedTags)].slice(0, 4);
+      if (this.containsKeywords(combinedText, ['japan', 'japanese', '일본', '도쿄', 'tokyo'])) {
+        tags.push('일본');
+      }
+
+      if (this.containsKeywords(combinedText, ['china', 'chinese', '중국', '베이징', 'beijing'])) {
+        tags.push('중국');
+      }
+
+      if (this.containsKeywords(combinedText, ['usa', 'america', 'american', '미국', '워싱턴', 'washington'])) {
+        tags.push('미국');
+      }
+
+      if (this.containsKeywords(combinedText, ['europe', 'european', '유럽', 'eu'])) {
+        tags.push('유럽');
+      }
+
+      // Special event tags
+      if (this.containsKeywords(combinedText, ['election', 'vote', '선거', '투표'])) {
+        tags.push('선거');
+      }
+
+      if (this.containsKeywords(combinedText, ['climate', 'environment', '기후', '환경'])) {
+        tags.push('환경');
+      }
+
+      if (this.containsKeywords(combinedText, ['covid', 'pandemic', 'virus', '코로나', '바이러스'])) {
+        tags.push('보건');
+      }
+
+      if (this.containsKeywords(combinedText, ['sports', 'olympic', '스포츠', '올림픽'])) {
+        tags.push('스포츠');
+      }
+
+      // Rating-based tags
+      const rating = await this.calculateRating(article);
+      if (rating >= 4.5) {
+        tags.push('주목');
+      }
+
+      // Default tag if no specific tags found
+      if (tags.length === 0) {
+        tags.push('일반');
+      }
+
+      // Remove duplicates and limit to 4 tags
+      return [...new Set(tags)].slice(0, 4);
 
     } catch (error) {
       logger.warn('Tag generation failed:', error.message);
-      return [];
+      return ['일반'];
     }
   }
 
@@ -182,7 +196,7 @@ class RatingService {
     );
   }
 
-  // Advanced rating calculation based on multiple factors (optimized for speed)
+  // Advanced rating calculation based on multiple factors
   async calculateAdvancedRating(article) {
     try {
       let totalScore = 0;
@@ -203,30 +217,15 @@ class RatingService {
       totalScore += sourceScore;
       factorCount++;
 
-      // 4. Recency Score (0-1, with 48h emphasis)
+      // 4. Recency Score (0-1)
       const recencyScore = this.calculateRecency(article);
-      totalScore += recencyScore * 0.8; // Reduce recency weight to 80% to balance with importance
+      totalScore += recencyScore;
       factorCount++;
 
-      // 5. Engagement Potential Score (0-1, adjusted for sports low weight)
+      // 5. Engagement Potential Score (0-1)
       const engagementScore = this.calculateEngagementPotential(article);
       totalScore += engagementScore;
       factorCount++;
-
-      // Weekday/Weekend factor integrated here
-      const now = new Date();
-      const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
-      const text = ((article.title || '') + ' ' + (article.description || '')).toLowerCase();
-      if (isWeekday && (this.containsKeywords(text, this.businessKeywords) || this.containsKeywords(text, this.importantKeywords))) {
-        totalScore += 0.2;
-      } else if (!isWeekday && this.containsKeywords(text, this.buzzKeywords)) {
-        totalScore += 0.2;
-      }
-
-      // Penalty for sports
-      if (this.containsKeywords(text, this.sportsKeywords)) {
-        totalScore -= 0.1;
-      }
 
       // Calculate average and convert to 1-5 scale
       const averageScore = totalScore / factorCount;
@@ -323,11 +322,10 @@ class RatingService {
       const hoursAgo = (now - publishedDate) / (1000 * 60 * 60);
 
       if (hoursAgo < 1) return 1.0;      // Very fresh
-      if (hoursAgo < 6) return 0.9;      // Extra boost for <6h
-      if (hoursAgo < 24) return 0.7;
-      if (hoursAgo < 48) return 0.5;     // Emphasis on <48h
-      if (hoursAgo < 72) return 0.3;
-      return 0.1;                        // Old, low score
+      if (hoursAgo < 6) return 0.8;      // Fresh
+      if (hoursAgo < 24) return 0.6;     // Recent
+      if (hoursAgo < 72) return 0.4;     // Somewhat old
+      return 0.2;                        // Old
 
     } catch (error) {
       return 0.3;
@@ -357,11 +355,6 @@ class RatingService {
       score += 0.3;
     }
 
-    // Penalty for sports
-    if (this.containsKeywords(text, this.sportsKeywords)) {
-      score -= 0.2;
-    }
-
     return Math.min(1, score);
   }
 
@@ -383,33 +376,31 @@ class RatingService {
       .map(([topic, count]) => ({ topic, count }));
   }
 
-  // Get importance score for article prioritization (balanced recency)
+  // Get importance score for article prioritization
   getImportanceScore(article) {
     const rating = this.calculateRating(article);
     const tags = this.generateTags(article);
     const recency = this.calculateRecency(article);
     
-    let importance = rating * 0.5; // Increase rating weight to 50% for balance
+    let importance = rating * 0.4; // Rating weight: 40%
     
-    // Tag-based importance (urgent/important first)
+    // Tag-based importance
     if (tags.includes('긴급')) importance += 2;
     if (tags.includes('중요')) importance += 1.5;
-    if (tags.includes('바이럴')) importance += 1;
-    if (tags.includes('Hot')) importance += 0.5;
-    if (tags.includes('스포츠')) importance -= 0.5; // Lower for sports
+    if (tags.includes('Hot')) importance += 1;
     
-    // Recency weight: 30%, capped
-    importance += Math.min(recency * 1.2, 1.5);
+    // Recency weight: 30%
+    importance += recency * 1.5;
     
     return Math.min(10, importance);
   }
 
-  // Batch process articles for performance (smaller batches for faster loading)
+  // Batch process articles for performance
   async batchProcessArticles(articles) {
     const processed = [];
     
-    for (let i = 0; i < articles.length; i += 5) { // Smaller batch size (5) for quicker response
-      const batch = articles.slice(i, i + 5);
+    for (let i = 0; i < articles.length; i += 10) {
+      const batch = articles.slice(i, i + 10);
       
       const batchPromises = batch.map(async (article) => ({
         ...article,
@@ -421,9 +412,9 @@ class RatingService {
       const batchResults = await Promise.all(batchPromises);
       processed.push(...batchResults);
       
-      // Minimal delay only if needed
-      if (i + 5 < articles.length) {
-        await new Promise(resolve => setTimeout(resolve, 50)); // Reduced delay for speed
+      // Small delay between batches to avoid overwhelming the system
+      if (i + 10 < articles.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     
@@ -438,10 +429,10 @@ class RatingService {
                      this.importantKeywords.length + 
                      this.techKeywords.length + 
                      this.businessKeywords.length + 
-                     this.buzzKeywords.length +
-                     this.sportsKeywords.length
+                     this.buzzKeywords.length
     };
   }
 }
 
 module.exports = new RatingService();
+
