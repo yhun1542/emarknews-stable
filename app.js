@@ -36,6 +36,20 @@ app.get('/api/:section', async (req, res, next) => {
   }
 });
 
+// 프론트엔드 호환을 위한 /api/news/:section 라우트
+app.get('/api/news/:section', async (req, res, next) => {
+  try {
+    const result = await news.getNews(req.params.section, true);
+    if (result.success) {
+      res.json(result.data);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch news' });
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
