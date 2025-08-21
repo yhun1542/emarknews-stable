@@ -64,8 +64,9 @@
 
         /* 로고 SVG 스타일링 */
         .logo-svg {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
         }
 
         .logo-text { font-size: 26px; font-weight: 800; }
@@ -415,21 +416,10 @@
     <header class="header">
         <div class="header-container">
             <div class="logo" onclick="newsApp.scrollToTop()">
-                <!-- 로고 SVG 삽입 -->
-```svg
-<svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="grad_main" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5a4fcf" />
-      <stop offset="100%" stop-color="#7c73e6" />
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="16" fill="url(#grad_main)"/>
-  <!-- EmarkNews 'E' 형상화 -->
-  <path d="M20 18 H44 V26 H28 V32 H42 V40 H28 V46 H44 V54 H20 Z" fill="white" transform="translate(0, -5)"/>
-</svg>
-            <span class="logo-text">EmarkNews</span><span class="logo-com">.com</span>
-        </div>
+                <!-- 업로드된 로고 SVG 사용 -->
+                <img src="logo.svg" alt="EmarkNews Logo" class="logo-svg" />
+                <span class="logo-text">EmarkNews</span><span class="logo-com">.com</span>
+            </div>
     </div>
 </header>
 
