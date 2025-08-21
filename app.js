@@ -102,7 +102,9 @@ app.get('/api/news/:section', async (req, res, next) => {
 app.get('/api/article/:section/:id', async (req, res, next) => {
   try {
     const { section, id } = req.params;
-    const result = await news.getArticleById(section, id);
+    // ID에 섹션 정보가 이미 포함되어 있는지 확인
+    const articleId = id.startsWith(`${section}_`) ? id : `${section}_${id}`;
+    const result = await news.getArticleById(section, articleId);
     if (result.success) {
       res.json({
         success: true,

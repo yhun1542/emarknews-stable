@@ -1072,7 +1072,7 @@ class NewsService {
                 timeAgo: this.formatTimeAgo(article.publishedAt),
                 rating: await ratingService.calculateRating(article),
                 tags: await ratingService.generateTags(article),
-                id: Buffer.from(article.url).toString('base64').slice(0, 12),
+                id: `${section}_${Buffer.from(article.url).toString('base64').slice(0, 12)}`,
                 aiDetailedSummary,
                 summaryPoints,
                 hasTranslation,
@@ -1113,8 +1113,12 @@ class NewsService {
                 const parsedCache = JSON.parse(cached);
                 const articles = parsedCache.articles || [];
                 
-                // ID로 기사 찾기
-                const article = articles.find(article => article.id === id);
+                // ID로 기사 찾기 (섹션 정보가 포함된 ID 또는 기존 ID 모두 처리)
+                const article = articles.find(article => 
+                    article.id === id || 
+                    article.id === `${section}_${id.replace(`${section}_`, '')}` ||
+                    `${section}_${article.id}` === id
+                );
                 
                 if (article) {
                     return { success: true, data: article };
@@ -1125,7 +1129,12 @@ class NewsService {
             const result = await this.getNews(section, false);
             
             if (result.success && result.data && result.data.articles) {
-                const article = result.data.articles.find(article => article.id === id);
+                // ID로 기사 찾기 (섹션 정보가 포함된 ID 또는 기존 ID 모두 처리)
+                const article = result.data.articles.find(article => 
+                    article.id === id || 
+                    article.id === `${section}_${id.replace(`${section}_`, '')}` ||
+                    `${section}_${article.id}` === id
+                );
                 
                 if (article) {
                     return { success: true, data: article };

@@ -341,7 +341,9 @@
 
         if (!articleDataString) {
             // API에서 기사 데이터 가져오기 시도
-            fetch(`/api/article/${section}/${articleId}`)
+            // ID에 섹션 정보가 이미 포함되어 있는지 확인
+            const apiArticleId = articleId.startsWith(`${section}_`) ? articleId : `${section}_${articleId}`;
+            fetch(`/api/article/${section}/${apiArticleId}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('API 응답 오류');
