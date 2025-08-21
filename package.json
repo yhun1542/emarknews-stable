@@ -5,10 +5,11 @@
   "main": "app.js",
   "private": true,
   "scripts": {
+    "deps:heal": "bash heal-and-ci.sh",
+    "clean:install": "rm -rf node_modules package-lock.json && npm i && npm ci",
+    "build": "node -e \"console.log('No build step required')\"",
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "prebuild": "node -e \"console.log('No build step required')\"",
-    "build": "node -e \"console.log('No build step required')\"",
     "postbuild": "node scripts/hash-static.mjs"
   },
   "dependencies": {
@@ -27,8 +28,8 @@
     "nodemon": "^3.1.0"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "type": "commonjs",
   "repository": {
@@ -43,3 +44,4 @@
   },
   "homepage": "https://github.com/yhun1542/emarknews-stable#readme"
 }
+
