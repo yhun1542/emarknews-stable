@@ -52,8 +52,7 @@ class NewsService {
                     // NewsAPI 제거 - RSS만 사용하여 안정성 확보
                 ],
                 rss: [
-                    // 검증된 실제 작동하는 RSS 피드들만 사용
-                    { url: 'https://www.yna.co.kr/rss/news.xml', name: 'Yonhap News', lang: 'ko' },
+                    // 순수 국제 뉴스 소스만 사용 (한국 뉴스 제외)
                     { url: 'https://feeds.bbci.co.uk/news/rss.xml', name: 'BBC News', lang: 'en' },
                     { url: 'https://rss.cnn.com/rss/edition.rss', name: 'CNN', lang: 'en' },
                     { url: 'https://feeds.feedburner.com/reuters/topNews', name: 'Reuters', lang: 'en' },
