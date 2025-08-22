@@ -1,4 +1,4 @@
-const redis = require('redis');
+const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
 let client = null;
@@ -12,13 +12,11 @@ async function connectRedis() {
             return null;
         }
 
-        client = redis.createClient({ 
-            url: redisUrl,
-            socket: {
-                reconnectStrategy: (retries) => {
-                    if (retries > 3) return false;
-                    return Math.min(retries * 100, 3000);
-                }
+        client = new Redis(redisUrl, {
+            maxRetriesPerRequest: 3,
+            retryStrategy(times) {
+                if (times > 3) return false;
+                return Math.min(times * 100, 3000);
             }
         });
 
@@ -34,7 +32,6 @@ async function connectRedis() {
             logger.info('Redis ready');
         });
 
-        await client.connect();
         return client;
     } catch (error) {
         logger.error('Redis connection failed:', error.message);
@@ -45,7 +42,7 @@ async function connectRedis() {
 // Safe Redis wrapper
 const redisWrapper = {
     get: async (key) => {
-        if (!client?.isOpen) return null;
+        if (!client) return null;
         try {
             return await client.get(key);
         } catch (err) {
@@ -53,15 +50,18 @@ const redisWrapper = {
         }
     },
     set: async (key, value, options) => {
-        if (!client?.isOpen) return null;
+        if (!client) return null;
         try {
-            return await client.set(key, value, options);
+            if (options && options.EX) {
+                return await client.set(key, value, 'EX', options.EX);
+            }
+            return await client.set(key, value);
         } catch (err) {
             return null;
         }
     },
     del: async (key) => {
-        if (!client?.isOpen) return null;
+        if (!client) return null;
         try {
             return await client.del(key);
         } catch (err) {
@@ -75,3 +75,4 @@ module.exports = {
     redis: redisWrapper,
     getClient: () => client
 };
+
