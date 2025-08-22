@@ -1,77 +1,41 @@
-const pino = require('pino');
-const path = require('path');
-
-// Create logs directory if it doesn't exist
-const fs = require('fs');
-const logsDir = path.join(process.cwd(), 'logs');
-if (!fs.existsSync(logsDir)) {
-  try {
-    fs.mkdirSync(logsDir, { recursive: true });
-  } catch (error) {
-    console.warn('Could not create logs directory:', error.message);
-  }
-}
-
-// Define log configuration
-const logConfig = {
-  level: process.env.LOG_LEVEL || 'info',
-  timestamp: () => `,"time":"${new Date().toISOString()}"`,
-  formatters: {
-    level: (label) => {
-      return { level: label };
-    },
-    bindings: (bindings) => {
-      return { pid: bindings.pid, hostname: bindings.hostname };
-    },
-    log: (object) => {
-      if (object.err) {
-        // Handle Error objects
-        const err = object.err;
-        object.err = {
-          message: err.message,
-          stack: err.stack,
-          type: err.name,
-          code: err.code
-        };
-      }
-      return object;
-    }
-  }
-};
-
-// Create logger instance
-const pinoLogger = pino(logConfig);
-
-// Create a wrapper with winston-like interface for compatibility
+// Simple logger implementation
 const logger = {
-  info: (message, meta = {}) => pinoLogger.info(meta, message),
-  warn: (message, meta = {}) => pinoLogger.warn(meta, message),
-  error: (message, meta = {}) => pinoLogger.error(meta, message),
-  debug: (message, meta = {}) => pinoLogger.debug(meta, message),
+  info: (message, meta = {}) => {
+    console.log(`[INFO] ${message}`, meta);
+  },
+  warn: (message, meta = {}) => {
+    console.log(`[WARN] ${message}`, meta);
+  },
+  error: (message, meta = {}) => {
+    console.error(`[ERROR] ${message}`, meta);
+  },
+  debug: (message, meta = {}) => {
+    console.log(`[DEBUG] ${message}`, meta);
+  },
   
   // Custom methods for different log types
   api: (message, meta = {}) => {
-    pinoLogger.info({ service: 'API', ...meta }, message);
+    console.log(`[API] ${message}`, meta);
   },
   
   service: (serviceName, message, meta = {}) => {
-    pinoLogger.info({ service: serviceName, ...meta }, message);
+    console.log(`[${serviceName}] ${message}`, meta);
   },
   
   performance: (message, metrics = {}) => {
-    pinoLogger.info({ service: 'PERFORMANCE', ...metrics }, message);
+    console.log(`[PERFORMANCE] ${message}`, metrics);
   },
   
   security: (message, meta = {}) => {
-    pinoLogger.warn({ service: 'SECURITY', ...meta }, message);
+    console.log(`[SECURITY] ${message}`, meta);
   },
   
   startup: (message, meta = {}) => {
-    pinoLogger.info({ service: 'STARTUP', ...meta }, message);
+    console.log(`[STARTUP] ${message}`, meta);
   },
   
   database: (message, meta = {}) => {
-    pinoLogger.info({ service: 'DATABASE', ...meta }, message);
+    console.log(`[DATABASE] ${message}`, meta);
   },
   
   // Request logging middleware helper
@@ -83,24 +47,13 @@ const logger = {
       // Override res.send to capture response
       res.send = function(data) {
         const duration = Date.now() - startTime;
-        const contentLength = data ? Buffer.byteLength(data, 'utf8') : 0;
         
         // Log request details
-        const logData = {
-          method: req.method,
-          url: req.originalUrl,
-          ip: req.ip || req.connection.remoteAddress,
-          userAgent: req.get('User-Agent'),
-          statusCode: res.statusCode,
-          duration: `${duration}ms`,
-          contentLength: `${contentLength}B`
-        };
-        
         if (res.statusCode >= 400) {
-          logger.warn('HTTP Request Failed', logData);
+          console.log(`[WARN] HTTP Request Failed: ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
         } else if (req.originalUrl !== '/health' && req.originalUrl !== '/healthz') {
           // Don't log health checks to reduce noise
-          logger.api('HTTP Request', logData);
+          console.log(`[INFO] HTTP Request: ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
         }
         
         return originalSend.call(this, data);
@@ -112,51 +65,17 @@ const logger = {
   
   // Error logging helper
   logError: (error, context = {}) => {
-    const errorData = {
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      ...context
-    };
-    
-    if (error.response) {
-      // HTTP error
-      errorData.status = error.response.status;
-      errorData.statusText = error.response.statusText;
-      errorData.url = error.config?.url;
-    }
-    
-    logger.error('Application Error', errorData);
+    console.error(`[ERROR] Application Error: ${error.message}`, context);
   },
   
   // System info logging
   logSystemInfo: () => {
-    const systemInfo = {
-      nodeVersion: process.version,
-      platform: process.platform,
-      arch: process.arch,
-      pid: process.pid,
-      memory: process.memoryUsage(),
-      uptime: process.uptime()
-    };
-    
-    logger.startup('System Information', systemInfo);
+    console.log(`[STARTUP] System Information: Node ${process.version}, ${process.platform}`);
   },
   
   // Environment logging
   logEnvironment: () => {
-    const env = {
-      NODE_ENV: process.env.NODE_ENV,
-      LOG_LEVEL: process.env.LOG_LEVEL,
-      PORT: process.env.PORT,
-      hasRedis: !!process.env.REDIS_URL,
-      hasOpenAI: !!process.env.OPENAI_API_KEY,
-      hasNewsAPI: !!process.env.NEWS_API_KEY,
-      hasYouTube: !!process.env.YOUTUBE_API_KEY,
-      hasCurrency: !!process.env.CURRENCY_API_KEY
-    };
-    
-    logger.startup('Environment Configuration', env);
+    console.log(`[STARTUP] Environment: ${process.env.NODE_ENV || 'development'}`);
   }
 };
 
